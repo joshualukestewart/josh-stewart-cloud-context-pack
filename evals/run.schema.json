@@ -1,0 +1,336 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/joshualukestewart/josh-stewart-cloud-context-pack/main/evals/run.schema.json",
+  "title": "Joshua Stewart Cloud Context Pack - Single Run Record Schema",
+  "description": "Schema for the run.json emitted into every iteration-N/<eval-id>/<arm>/ directory by evals/run.mjs --prepare and completed by hand by the operator after driving the agent. Validated offline by evals/run.mjs using the same hand-written JSON Schema subset described in evals.schema.json (no $ref/oneOf/$defs). Nullable fields are typed as [\"<type>\", \"null\"] so that the untouched template is still schema-valid; schema validity is NOT completeness. Completeness is enforced separately by run.mjs --grade, which fails closed when a field required for grading is still null or still holds a template placeholder.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runSchemaVersion",
+    "runId",
+    "evalId",
+    "iteration",
+    "arm",
+    "blindLabel",
+    "suiteVersion",
+    "packState",
+    "tool",
+    "operator",
+    "startedAt",
+    "completedAt",
+    "context",
+    "measurements",
+    "outcome",
+    "manualAssertions",
+    "rubricScores",
+    "regressions",
+    "evidence"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "runSchemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Unique id for this run, generated at prepare time: <iteration>-<evalId>-<arm>-<n>."
+    },
+    "evalId": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "iteration": { "type": "integer", "minimum": 1 },
+    "arm": { "type": "string", "enum": ["with_pack", "without_pack"] },
+    "blindLabel": {
+      "type": "string",
+      "pattern": "^[A-Z]$",
+      "description": "Label the judge sees instead of the arm name. The label-to-arm map lives in iteration-N/blinding/labels.json and must not be opened until grading is finished."
+    },
+    "suiteVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "packState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packVersion", "skillsAuthored", "contextFilesSha256", "packPresentInWorkspace"],
+      "properties": {
+        "packVersion": { "type": "string", "minLength": 1 },
+        "packCommit": { "type": ["string", "null"] },
+        "skillsAuthored": { "type": "integer", "minimum": 0 },
+        "contextFilesSha256": {
+          "type": ["string", "null"],
+          "description": "SHA-256 over the sorted list of copied pack context files and their individual digests. Null for the without_pack arm, where no pack context is copied."
+        },
+        "packPresentInWorkspace": { "type": "boolean" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "model", "contextState"],
+      "properties": {
+        "id": {
+          "type": ["string", "null"],
+          "description": "Tool id from evals.json tools[]. Fill in by hand."
+        },
+        "version": {
+          "type": ["string", "null"],
+          "description": "Exact tool/CLI/extension version string observed at run time. Do not guess."
+        },
+        "model": {
+          "type": ["string", "null"],
+          "description": "Model name as the tool reports it at run time."
+        },
+        "modelVersionObserved": {
+          "type": ["string", "null"],
+          "description": "Any finer-grained model build/date string the tool exposes, or null if it exposes none."
+        },
+        "contextState": {
+          "type": ["string", "null"],
+          "enum": ["fresh-session", "reused-session", null],
+          "description": "Must be 'fresh-session' for a valid run: a new session with no prior turns, no memory carried over, and no other repository open."
+        },
+        "settingsNotes": { "type": ["string", "null"] }
+      }
+    },
+    "operator": {
+      "type": ["string", "null"],
+      "description": "Who drove the run. Needed so a suspicious result can be re-run by someone else."
+    },
+    "startedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the prompt was submitted."
+    },
+    "completedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the agent stopped producing output."
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cleanContext", "priorTurns"],
+      "properties": {
+        "cleanContext": {
+          "type": ["boolean", "null"],
+          "description": "True only if the session was brand new and the prompt was the first message."
+        },
+        "priorTurns": { "type": ["integer", "null"], "minimum": 0 },
+        "followUpTurnsUsed": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of additional turns the operator sent. Any value above 0 must be explained in notes; the protocol is single-prompt unless the case explicitly expects a clarifying exchange."
+        },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wallClockSeconds", "tokens", "toolCalls", "turns"],
+      "properties": {
+        "wallClockSeconds": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Wall-clock seconds from prompt submission to final output. Includes agent thinking and tool time; excludes operator reading time."
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "input": { "type": ["integer", "null"], "minimum": 0 },
+            "output": { "type": ["integer", "null"], "minimum": 0 },
+            "total": { "type": ["integer", "null"], "minimum": 0 },
+            "source": {
+              "type": ["string", "null"],
+              "enum": ["tool-reported", "estimated", "unavailable", null],
+              "description": "'tool-reported' only when the tool itself printed the number. 'estimated' requires the method to be stated in sourceNotes and disqualifies the run from the token launch gate."
+            },
+            "sourceNotes": { "type": ["string", "null"] }
+          }
+        },
+        "toolCalls": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "total": { "type": ["integer", "null"], "minimum": 0 },
+            "byName": {
+              "type": "array",
+              "minItems": 0,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "count"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "count": { "type": "integer", "minimum": 0 }
+                }
+              }
+            },
+            "retrievalCalls": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "description": "Subset of tool calls that fetched something over the network during the run. Needed by the live-retrieval gate."
+            },
+            "source": {
+              "type": ["string", "null"],
+              "enum": ["tool-reported", "manual-count", "unavailable", null]
+            }
+          }
+        },
+        "turns": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "artifactsProduced"],
+      "properties": {
+        "status": {
+          "type": ["string", "null"],
+          "enum": ["completed", "partial", "refused", "abandoned", "error", null],
+          "description": "What the agent actually did. 'refused' and 'abandoned' are legitimate outcomes and are graded on their merits, not automatically failed."
+        },
+        "artifactsProduced": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Workspace-relative paths the agent created or modified, as observed by the operator."
+        },
+        "summary": { "type": ["string", "null"] }
+      }
+    },
+    "manualAssertions": {
+      "type": "array",
+      "minItems": 0,
+      "description": "One entry per assertion of type 'manual' in the case definition. run.mjs --grade fails closed when an entry is missing or lacks a usable quote.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assertionId", "verdict", "judge", "judgeBlinded", "evidence"],
+        "properties": {
+          "assertionId": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "verdict": {
+            "type": "string",
+            "enum": ["pass", "fail", "not-applicable"],
+            "description": "No 'partial' and no benefit of the doubt: if the evidence does not clearly show the behaviour, the verdict is 'fail'."
+          },
+          "judge": { "type": "string", "enum": ["human", "llm-judge"] },
+          "judgeBlinded": {
+            "type": "boolean",
+            "description": "True only if the judge could not tell which arm produced the output when the verdict was formed."
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["quote", "source", "locator"],
+              "properties": {
+                "quote": {
+                  "type": "string",
+                  "minLength": 20,
+                  "description": "Verbatim text copied from the transcript or an artifact. Paraphrase is not evidence."
+                },
+                "source": { "type": "string", "enum": ["transcript", "artifact", "tool-log"] },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Where the quote came from: file path plus line/section, or transcript turn number."
+                }
+              }
+            }
+          },
+          "notes": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "rubricScores": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterionId", "score", "evidence"],
+        "properties": {
+          "criterionId": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2,
+            "description": "0 = absent or unevidenced, 1 = present but incomplete, 2 = fully met. Score 0 whenever the evidence array is weak; unevidenced never scores above 0."
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["quote", "source", "locator"],
+              "properties": {
+                "quote": { "type": "string", "minLength": 20 },
+                "source": { "type": "string", "enum": ["transcript", "artifact", "tool-log"] },
+                "locator": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "notes": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "regressions": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Operator-observed harms that the mechanical checks may not catch. Recorded per run; the aggregate also derives regressions by comparing arms.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "description", "evidence"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["correctness", "security", "scope", "performance", "other"]
+          },
+          "description": { "type": "string", "minLength": 15 },
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["quote", "source", "locator"],
+            "properties": {
+              "quote": { "type": "string", "minLength": 20 },
+              "source": { "type": "string", "enum": ["transcript", "artifact", "tool-log"] },
+              "locator": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcriptPath", "transcriptCaptured"],
+      "properties": {
+        "transcriptPath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path, relative to this run directory, of the full captured transcript. Defaults to transcript.md."
+        },
+        "transcriptCaptured": {
+          "type": ["boolean", "null"],
+          "description": "True only when the transcript is complete from prompt to final output, including tool calls if the tool shows them."
+        },
+        "tokenReportPath": {
+          "type": ["string", "null"],
+          "description": "Optional path to a screenshot or export backing the token numbers."
+        },
+        "extraPaths": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "notes": { "type": ["string", "null"] }
+  }
+}

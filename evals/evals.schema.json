@@ -1,0 +1,378 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/joshualukestewart/josh-stewart-cloud-context-pack/main/evals/evals.schema.json",
+  "title": "Joshua Stewart Cloud Context Pack - Evaluation Suite Schema",
+  "description": "Schema for evals/evals.json, the declarative definition of the baseline-versus-pack evaluation suite. Validated offline by evals/run.mjs using a small hand-written JSON Schema subset validator (type incl. type arrays, const, enum, pattern, format: date|date-time|uri, minLength, maxLength, minimum, maximum, minItems, maxItems, uniqueItems, required, properties, items, additionalProperties: false). It is not a general-purpose JSON Schema engine: no $ref, no oneOf/anyOf/allOf, no $defs, no conditional keywords. Keep this file inside that subset or run.mjs will not be able to enforce it. The $id names this repository's intended canonical GitHub location; the repository has not been published yet, so treat that URL as aspirational.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suiteVersion",
+    "status",
+    "packUnderTest",
+    "armDefinitions",
+    "tools",
+    "skillRegistry",
+    "cases"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional pointer to this schema file, for editor tooling."
+    },
+    "suiteVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of the eval suite's own shape and case set, independent of the pack's VERSION. Bump the minor version when a case is added or its assertions change in a way that makes past results non-comparable."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["not-run", "in-progress", "complete"],
+      "description": "Whether this suite has ever been executed end to end. 'not-run' means no result in this repository may be presented as a measurement of anything."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-text notes about the suite as a whole, including honesty caveats."
+    },
+    "packUnderTest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "skillsAuthored", "caveat"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Pack version this suite was written against, copied from VERSION/manifest.json at authoring time. run.mjs re-reads the live value at prepare time and records any mismatch."
+        },
+        "skillsAuthored": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of authored skills in .agents/skills at the time this suite was written. If 0, the with_pack arm carries no skill content and any measured difference between arms would be noise, not lift."
+        },
+        "caveat": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Plain-language statement of what this suite cannot currently prove."
+        }
+      }
+    },
+    "armDefinitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["with_pack", "without_pack"],
+      "properties": {
+        "with_pack": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Exactly what is present in the with_pack workspace."
+        },
+        "without_pack": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Exactly what is present in the without_pack workspace. Must differ from with_pack only by pack context."
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Agent tools this suite is intended to be run against, manually. Nothing in this repository launches them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "invocation",
+          "transcriptCapture",
+          "tokenReporting",
+          "toolCallReporting"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "displayName": { "type": "string", "minLength": 1 },
+          "invocation": {
+            "type": "string",
+            "const": "manual-only",
+            "description": "Fixed value. This suite never automates a proprietary agent CLI; the operator drives the tool by hand."
+          },
+          "transcriptCapture": {
+            "type": "string",
+            "minLength": 10,
+            "description": "How the operator is expected to capture a full transcript for this tool, without asserting a capability that has not been confirmed."
+          },
+          "tokenReporting": {
+            "type": "string",
+            "enum": ["tool-reported", "estimated", "unavailable", "unverified"],
+            "description": "Whether token counts are available from the tool itself. 'unverified' means the suite author has not confirmed either way; the operator records what they actually observe in run.json."
+          },
+          "toolCallReporting": {
+            "type": "string",
+            "enum": ["tool-reported", "manual-count", "unavailable", "unverified"]
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "skillRegistry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "note", "slugs"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["provisional-unauthored", "authored"],
+          "description": "'provisional-unauthored' means these slugs are eval-side hypotheses about which skill each case would exercise. They are not a decision about the pack's skill set and must not be treated as evidence that any skill exists."
+        },
+        "note": { "type": "string", "minLength": 20 },
+        "slugs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["slug", "provisionalTopic", "authored"],
+            "properties": {
+              "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+              "provisionalTopic": { "type": "string", "minLength": 10 },
+              "authored": {
+                "type": "boolean",
+                "description": "Whether .agents/skills/<slug>/SKILL.md actually exists. run.mjs re-checks this at prepare time and warns on mismatch."
+              }
+            }
+          }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "category",
+          "riskLevel",
+          "risk",
+          "prompt",
+          "fixtures",
+          "expectedArtifacts",
+          "assertions",
+          "rubric",
+          "relevantSkills",
+          "nonTrigger",
+          "liveRetrievalRequired",
+          "mechanicalCoverage"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable, unique, kebab-case identifier. Used as a directory name under iteration-N/."
+          },
+          "title": { "type": "string", "minLength": 5 },
+          "category": {
+            "type": "string",
+            "enum": [
+              "implementation",
+              "data-safety",
+              "security",
+              "resilience",
+              "observability",
+              "infrastructure",
+              "diagnosis",
+              "testing",
+              "delivery",
+              "accessibility",
+              "refactor",
+              "ambiguity",
+              "retrieval",
+              "non-trigger"
+            ]
+          },
+          "riskLevel": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Severity of the real-world consequence described in 'risk', not the difficulty of the case."
+          },
+          "risk": {
+            "type": "string",
+            "minLength": 30,
+            "description": "What actually goes wrong in production if an agent handles this case badly."
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 30,
+            "description": "The exact text the operator pastes into the agent. Identical for both arms; the only permitted difference between arms is the presence of pack context."
+          },
+          "promptNotes": {
+            "type": "string",
+            "description": "Operator guidance about the prompt (e.g. what must NOT be added to it, such as hints that would leak the expected answer)."
+          },
+          "fixtures": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source", "mountAt"],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^fixtures/[A-Za-z0-9._/-]+$",
+                  "description": "Path relative to evals/. Must stay inside evals/fixtures/."
+                },
+                "mountAt": {
+                  "type": "string",
+                  "pattern": "^([.]|[A-Za-z0-9._/-]+)$",
+                  "description": "Destination inside the prepared workspace. '.' means the fixture directory's contents become the workspace root."
+                }
+              }
+            }
+          },
+          "expectedArtifacts": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "kind", "required", "description"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "kind": {
+                  "type": "string",
+                  "enum": ["created", "modified", "either", "unchanged"]
+                },
+                "required": {
+                  "type": "boolean",
+                  "description": "If true, absence of this artifact is a blocking failure for the case."
+                },
+                "description": { "type": "string", "minLength": 5 }
+              }
+            }
+          },
+          "assertions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "type", "severity", "target", "description"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "file-exists",
+                    "file-absent",
+                    "file-matches",
+                    "file-not-matches",
+                    "any-file-matches",
+                    "no-file-matches",
+                    "json-parses",
+                    "file-unchanged",
+                    "file-changed",
+                    "max-changed-files",
+                    "max-added-files",
+                    "manual"
+                  ],
+                  "description": "Mechanical types are executed by evals/run.mjs --grade against files only (read, hash, regex, JSON.parse). 'manual' types require a human or a blinded LLM judge and a quoted piece of evidence recorded in run.json. See ASSERTIONS.md."
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": ["blocking", "advisory"],
+                  "description": "'blocking' failures fail the case. 'advisory' failures are recorded and reported but do not fail the case; use it where a reasonable agent could legitimately differ."
+                },
+                "target": {
+                  "type": "string",
+                  "enum": ["workspace", "transcript"],
+                  "description": "'workspace' resolves paths inside <arm>/workspace/. 'transcript' operates on <arm>/transcript.md and ignores 'path'."
+                },
+                "path": {
+                  "type": "string",
+                  "description": "Workspace-relative file path. Required by file-exists, file-absent, file-matches, file-not-matches, json-parses, file-unchanged, file-changed when target is 'workspace'."
+                },
+                "pathGlob": {
+                  "type": "string",
+                  "description": "Glob used by any-file-matches / no-file-matches. Supports ** (any depth), * (within a path segment) and ?."
+                },
+                "pattern": {
+                  "type": "string",
+                  "description": "JavaScript regular expression source, applied to file text. Required by the *-matches types."
+                },
+                "flags": {
+                  "type": "string",
+                  "pattern": "^[gimsuy]*$",
+                  "description": "Regular expression flags. 'i' for case-insensitive, 'm' for multiline anchors."
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Threshold for max-changed-files / max-added-files, compared against the prepared fixture manifest."
+                },
+                "securityRelevant": {
+                  "type": "boolean",
+                  "description": "If true, a with_pack failure where without_pack passed counts as a security regression in the launch gates."
+                },
+                "correctnessRelevant": {
+                  "type": "boolean",
+                  "description": "If true, a with_pack failure where without_pack passed counts as a correctness regression in the launch gates. Defaults to true for blocking assertions when omitted."
+                },
+                "description": { "type": "string", "minLength": 10 },
+                "rationale": {
+                  "type": "string",
+                  "description": "Why this check is fair and what it deliberately does not prove."
+                },
+                "judge": {
+                  "type": "string",
+                  "enum": ["human", "llm-judge", "either"],
+                  "description": "Only meaningful for type 'manual'. Any LLM judge must be run blinded; see ASSERTIONS.md."
+                }
+              }
+            }
+          },
+          "rubric": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Scored criteria applied by a blinded judge. Every criterion requires quoted evidence; an unevidenced criterion scores 0.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "statement", "weight"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+                "statement": { "type": "string", "minLength": 15 },
+                "weight": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            }
+          },
+          "relevantSkills": {
+            "type": "array",
+            "minItems": 0,
+            "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+            "description": "Provisional slugs from skillRegistry that this case is expected to exercise. An empty array means no single skill owns this case."
+          },
+          "relevantSkillsNote": { "type": "string" },
+          "nonTrigger": {
+            "type": "boolean",
+            "description": "True when the correct behaviour is for the pack NOT to influence the answer. Used by the non-trigger launch gate."
+          },
+          "liveRetrievalRequired": {
+            "type": "boolean",
+            "description": "True when the case can only be answered correctly by retrieving current vendor documentation during the run. Used by the live-retrieval launch gate."
+          },
+          "mechanicalCoverage": {
+            "type": "string",
+            "enum": ["full", "partial", "none"],
+            "description": "'full' means every blocking assertion is mechanical. 'partial' means at least one blocking assertion needs a judge. 'none' means the case is entirely judged."
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

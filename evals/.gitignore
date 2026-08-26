@@ -1,0 +1,18 @@
+# Generated evaluation workspaces and their outputs.
+#
+# `run.mjs --prepare` writes iteration directories here: fixture copies,
+# pack-context copies, transcripts, run.json, grade.json and the aggregated
+# benchmark. They are machine-local run artifacts, not reviewed content,
+# and some of them (transcripts) can be large.
+#
+# Commit a result deliberately by copying the figures into RESULTS.md, not
+# by committing a runs directory wholesale.
+runs/
+
+# Harness self-check scratch directories.
+.tmp-harness-check/
+
+# The repository root ignores *.log, which would silently drop the captured
+# log excerpt that the trace-diagnosis case depends on. Fixture evidence is
+# reviewed content, not machine-local noise, so re-include it here.
+!fixtures/**/*.log

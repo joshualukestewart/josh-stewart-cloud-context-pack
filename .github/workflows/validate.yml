@@ -1,0 +1,101 @@
+name: Validate
+
+# Structural gate for every change: regenerates nothing, but fails if the
+# generated adapters/mirrors have drifted from AGENTS.md and .agents/skills,
+# if scripts/validate-pack.mjs finds a problem, or if the offline knowledge
+# checks fail. Uses only official GitHub actions pinned to a major version.
+#
+# This workflow never writes to the repository and never touches the network
+# beyond checkout: the freshness check runs in its default offline mode here,
+# because network drift is the scheduled freshness.yml workflow's job.
+
+"on":
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: this workflow only needs to read the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Assert the tooling is dependency-free
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e '
+            const pkg = require("./package.json");
+            const deps = Object.keys(pkg.dependencies ?? {}).length
+              + Object.keys(pkg.devDependencies ?? {}).length;
+            if (deps > 0) {
+              console.error("package.json declares dependencies; scripts/ must stay dependency-free");
+              process.exit(1);
+            }
+          '
+
+      - name: Check generated adapters and skill mirrors
+        run: node scripts/generate-adapters.mjs --check
+
+      - name: Run tooling tests
+        run: npm test
+
+      - name: Validate pack structure
+        run: node scripts/validate-pack.mjs
+
+      - name: Check knowledge registry (offline)
+        run: node scripts/check-freshness.mjs
+
+      - name: Write validation report
+        if: always()
+        run: node scripts/validate-pack.mjs --json > validation-report.json || true
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: validation-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  release-readiness:
+    name: Release readiness (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: validate
+    # Advisory only: reports whether this commit could be released today,
+    # without blocking ordinary work-in-progress commits.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate under release gates
+        run: node scripts/validate-pack.mjs --release

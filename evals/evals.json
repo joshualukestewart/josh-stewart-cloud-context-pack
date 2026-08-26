@@ -1,0 +1,634 @@
+{
+  "$schema": "./evals.schema.json",
+  "suiteVersion": "0.1.1",
+  "status": "not-run",
+  "notes": "This suite has never been executed. It defines how a baseline-versus-pack comparison would be run; it contains no results and no claims. Every case is written so that a wrong answer is visibly wrong, not so that the pack looks good. Prompts are original text written for this repository; no vendor documentation prose is reproduced anywhere in this suite or its fixtures. The skill slugs below were read from .agents/skills/ on 2026-08-26; evals/run.mjs re-reads them at prepare time and warns if they have moved.",
+  "packUnderTest": {
+    "version": "0.3.0-pre.1",
+    "skillsAuthored": 9,
+    "caveat": "The nine skills exist and are mapped to cases below, but no case has ever been run, so this repository holds no evidence that any of them helps, is neutral, or hurts. The mapping in relevantSkills is a statement of intent about which skill should fire, not an observation that it does; whether a skill actually activates is measured per run from the transcript, and the non-trigger case exists precisely to catch a pack that fires when it should not."
+  },
+  "armDefinitions": {
+    "with_pack": "Workspace = the case fixture plus the pack context files copied from the repository root (AGENTS.md, CLAUDE.md, GEMINI.md, .github/copilot-instructions.md, .github/instructions/, .agents/skills/, .github/skills/, .claude/skills/, .claude/rules/, manifest.json, VERSION). Every copied file is hashed into PACK-STATE.json so the arm is reproducible.",
+    "without_pack": "Workspace = the case fixture only, byte-identical to the with_pack fixture bytes, with no pack context file present anywhere in the workspace. Identical prompt, identical tool, identical model, identical clean-context protocol."
+  },
+  "tools": [
+    {
+      "id": "github-copilot",
+      "displayName": "GitHub Copilot (agent mode)",
+      "invocation": "manual-only",
+      "transcriptCapture": "Operator copies the full session transcript by hand into transcript.md, including every tool call the UI displays. If the tool offers a session export, use it and record the export path in evidence.extraPaths.",
+      "tokenReporting": "unverified",
+      "toolCallReporting": "unverified",
+      "notes": "Token and tool-call visibility have not been confirmed for this tool by this repository. The operator records what is actually observable, and 'unavailable' is an acceptable and expected answer that simply disqualifies the run from the token gate."
+    },
+    {
+      "id": "github-copilot-cli",
+      "displayName": "GitHub Copilot CLI",
+      "invocation": "manual-only",
+      "transcriptCapture": "Run each arm in a fresh noninteractive prompt process and preserve the CLI session share plus JSONL events. Record the exact CLI/model/effort flags and copy the final response and tool-call evidence into transcript.md.",
+      "tokenReporting": "tool-reported",
+      "toolCallReporting": "tool-reported",
+      "notes": "Verified in a non-claim pilot on 2026-08-26 with Copilot CLI 1.0.80: session.shutdown events expose exact input/output/cache tokens, AI credits and tool calls. The pilot was invalid for comparison because its eval pack version was stale; it is evidence about reporting capability only."
+    },
+    {
+      "id": "claude-code",
+      "displayName": "Claude Code",
+      "invocation": "manual-only",
+      "transcriptCapture": "Operator captures the full terminal session (for example via script/tee or a terminal buffer export) into transcript.md, including tool invocations.",
+      "tokenReporting": "unverified",
+      "toolCallReporting": "unverified",
+      "notes": "Same rule: record only what the tool actually reports at run time. Do not infer token counts from pricing, timing, or output length."
+    }
+  ],
+  "skillRegistry": {
+    "status": "authored",
+    "note": "These slugs were read from .agents/skills/ on 2026-08-26, where each has a SKILL.md. A case's relevantSkills entry says which skill the case is intended to exercise; it is not evidence that the skill fired, helped, or was even loaded. run.mjs --prepare re-reads .agents/skills/ and reports the true authored count and slug list into PACK-STATE.json for every with_pack run, so a result can always be traced back to the exact skill content that was present.",
+    "slugs": [
+      { "slug": "react-vite-feature-slice", "provisionalTopic": "Client-side feature work in the React and Vite web app", "authored": true },
+      { "slug": "aspnetcore-endpoint-slice", "provisionalTopic": "Adding or changing an HTTP endpoint and its contract in the API", "authored": true },
+      { "slug": "efcore-azuresql-change", "provisionalTopic": "Model, migration and query changes against the SQL database", "authored": true },
+      { "slug": "entra-managed-identity-wiring", "provisionalTopic": "Identity-based, secretless access to cloud resources and the role assignments it needs", "authored": true },
+      { "slug": "appinsights-telemetry-and-triage", "provisionalTopic": "Instrumentation, correlation and evidence-led incident triage", "authored": true },
+      { "slug": "bicep-infra-change", "provisionalTopic": "Declarative infrastructure changes and their preview and deployment", "authored": true },
+      { "slug": "azure-appservice-deploy", "provisionalTopic": "Hosting configuration and deployment of the web and API tiers", "authored": true },
+      { "slug": "release-staging-to-production", "provisionalTopic": "Promotion through environments, gates, migration ordering and rollback", "authored": true },
+      { "slug": "secure-by-design-review", "provisionalTopic": "Structured, evidence-based security review across the stack", "authored": true }
+    ]
+  },
+  "cases": [
+    {
+      "id": "vertical-slice-react-api-ef",
+      "title": "Implement one feature end to end across React, the API and EF Core",
+      "category": "implementation",
+      "riskLevel": "medium",
+      "risk": "A partial vertical slice ships a button that calls an endpoint that does not persist, or persistence that no caller reaches. The defect is invisible in review and surfaces as silent data loss for users who believe the action worked.",
+      "prompt": "In this workspace, implement an 'archive work order' feature end to end. The list at web/src/features/workorders/WorkOrderList.tsx needs a per-row archive action that calls a new API endpoint; the API in api/ needs that endpoint; and the archive must be persisted through EF Core so an archived work order stays archived after a restart. Follow the layout and conventions already present in the workspace. Do not add any npm or NuGet dependencies.",
+      "promptNotes": "Do not tell the agent which files to change beyond the entry point named above, and do not mention migrations - whether it reaches for one is part of what is being measured.",
+      "fixtures": [{ "source": "fixtures/vertical-slice", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "api/Endpoints/WorkOrdersEndpoints.cs", "kind": "modified", "required": true, "description": "The archive endpoint, mapped alongside the existing GET." },
+        { "path": "web/src/features/workorders/WorkOrderList.tsx", "kind": "modified", "required": true, "description": "The archive action wired to the new endpoint." },
+        { "path": "api/Models/WorkOrder.cs", "kind": "modified", "required": true, "description": "Whatever state the archive is recorded in." },
+        { "path": "web/package.json", "kind": "unchanged", "required": false, "description": "Must not gain dependencies." },
+        { "path": "api/Api.csproj", "kind": "unchanged", "required": false, "description": "Must not gain dependencies." }
+      ],
+      "assertions": [
+        { "id": "endpoint-file-present", "type": "file-exists", "severity": "blocking", "target": "workspace", "path": "api/Endpoints/WorkOrdersEndpoints.cs", "description": "The endpoints file still exists after the change." },
+        { "id": "endpoint-write-verb", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Endpoints/WorkOrdersEndpoints.cs", "pattern": "Map(Post|Put|Patch|Delete)\\s*\\(", "description": "A write-shaped endpoint was added; a GET alone cannot archive anything.", "rationale": "Checks shape, not correctness. A mapped write verb is necessary but not sufficient." },
+        { "id": "endpoint-mentions-archive", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Endpoints/WorkOrdersEndpoints.cs", "pattern": "archive", "flags": "i", "description": "The new endpoint is actually about archiving." },
+        { "id": "client-calls-api", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "web/src/features/workorders/WorkOrderList.tsx", "pattern": "(sendJson|postJson|fetch\\s*\\(|apiClient)", "description": "The React component issues a request rather than only mutating local state.", "rationale": "A component that flips a local flag without calling the API is the exact failure this case exists to catch." },
+        { "id": "client-mentions-archive", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "web/src/features/workorders/WorkOrderList.tsx", "pattern": "archive", "flags": "i", "description": "The client change is the archive action, not something else." },
+        { "id": "persistence-state-added", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(IsArchived|ArchivedAt|ArchivedOn|ArchivedUtc)", "description": "Archive state exists in the server-side model or configuration." },
+        { "id": "no-new-npm-dependencies", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "web/package.json", "description": "web/package.json is byte-identical to the prepared fixture." },
+        { "id": "no-new-nuget-dependencies", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "api/Api.csproj", "description": "api/Api.csproj is byte-identical to the prepared fixture." },
+        { "id": "scope-contained", "type": "max-added-files", "severity": "advisory", "target": "workspace", "max": 8, "description": "No more than eight new files were introduced for a single feature slice.", "rationale": "Advisory: a migration plus a couple of files is normal; a scaffolded sub-project is scope creep worth noticing, not an automatic failure." },
+        { "id": "slice-is-coherent", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the route the client calls and the route the endpoint declares and show they match in path, verb and payload shape.", "rationale": "Regex cannot tell whether two halves of a slice agree; a judge reading both files can." },
+        { "id": "persistence-actually-saved", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the code that persists the change (SaveChanges/SaveChangesAsync or equivalent) and the schema change that backs it, or the explicit statement of how the schema change will be applied." },
+        { "id": "failure-path-considered", "type": "manual", "severity": "advisory", "target": "transcript", "judge": "either", "description": "Quote evidence that a not-found or already-archived work order is handled deliberately rather than silently succeeding." }
+      ],
+      "rubric": [
+        { "id": "completeness", "statement": "All three layers change and agree with each other", "weight": 0.4 },
+        { "id": "convention-fit", "statement": "New code matches the existing file layout, naming and style in the workspace", "weight": 0.2 },
+        { "id": "restraint", "statement": "No dependencies, no unrequested refactors, no new project structure", "weight": 0.2 },
+        { "id": "durability", "statement": "The archive survives a restart because it is persisted, not held in memory", "weight": 0.2 }
+      ],
+      "relevantSkills": ["react-vite-feature-slice", "aspnetcore-endpoint-slice", "efcore-azuresql-change"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "ef-additive-schema-change",
+      "title": "Make a safe additive schema change against a large live table",
+      "category": "data-safety",
+      "riskLevel": "critical",
+      "risk": "A destructive or blocking migration against a large production table causes downtime or irreversible data loss. Editing an already-applied migration corrupts the migration history for every environment that has run it.",
+      "prompt": "The WorkOrders table in production holds tens of millions of rows and the currently deployed application version must keep working while this change rolls out. Add an optional closed-at timestamp to the work order, plus whatever index is needed to query open work orders by creation date. Deliver the schema change the way this workspace already delivers schema changes, and state the deploy order that makes it safe.",
+      "promptNotes": "Do not say the words 'additive', 'nullable', 'expand-contract' or 'online index' in the prompt. Whether the agent reaches for them is the measurement.",
+      "fixtures": [{ "source": "fixtures/ef-additive-change", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "api/Models/WorkOrder.cs", "kind": "modified", "required": true, "description": "The new optional property." },
+        { "path": "api/Migrations", "kind": "either", "required": true, "description": "A new migration; the existing one must not be edited." },
+        { "path": "api/Migrations/20260101000000_InitialCreate.cs", "kind": "unchanged", "required": false, "description": "An already-applied migration is immutable." }
+      ],
+      "assertions": [
+        { "id": "property-is-nullable", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(DateTime\\?|DateTimeOffset\\?)\\s+ClosedAt", "description": "The new timestamp property is nullable, so existing rows remain valid.", "correctnessRelevant": true },
+        { "id": "no-destructive-operations", "type": "no-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "**/*", "pattern": "(DropColumn|DROP COLUMN|DropTable|DROP TABLE|TRUNCATE|DELETE FROM)", "description": "Nothing in the workspace drops, truncates or deletes.", "correctnessRelevant": true },
+        { "id": "index-created", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "**/*", "pattern": "(CreateIndex|HasIndex|CREATE\\s+(UNIQUE\\s+)?(NONCLUSTERED\\s+)?INDEX)[\\s\\S]{0,300}CreatedAt", "description": "An index that actually covers the queried date column was created.", "rationale": "Deliberately requires CreatedAt to appear inside the index definition. The fixture already contains an index on Reference, so a check for the word 'index' alone would pass without anything being done." },
+        { "id": "new-migration-covers-column", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/Migrations/**", "pattern": "ClosedAt", "description": "The change is expressed in the migrations folder, not only in the entity class." },
+        { "id": "applied-migration-untouched", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "api/Migrations/20260101000000_InitialCreate.cs", "description": "The already-applied initial migration is byte-identical.", "correctnessRelevant": true },
+        { "id": "baseline-schema-untouched", "type": "file-unchanged", "severity": "advisory", "target": "workspace", "path": "db/schema-baseline.sql", "description": "The recorded baseline of what production currently looks like should be treated as a record, not a working file." },
+        { "id": "online-index-considered", "type": "any-file-matches", "severity": "advisory", "target": "workspace", "pathGlob": "**/*", "pattern": "(ONLINE\\s*=\\s*ON|RESUMABLE|CONCURRENTLY|online index)", "flags": "i", "description": "Index build strategy for a large table is addressed somewhere.", "rationale": "Advisory because the right answer depends on the database edition, which the fixture deliberately does not state; the judge checks whether the agent noticed the dependency at all." },
+        { "id": "deploy-order-explained", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the statement of deploy order showing that the schema change lands before the code that writes the new column, and that the currently deployed version keeps working throughout." },
+        { "id": "no-column-rewrite", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote evidence that no existing column was made non-nullable, renamed, retyped or backfilled in the same step." }
+      ],
+      "rubric": [
+        { "id": "additive-only", "statement": "Every schema operation is additive and reversible", "weight": 0.4 },
+        { "id": "history-respected", "statement": "Existing migration history is treated as immutable", "weight": 0.25 },
+        { "id": "rollout-reasoning", "statement": "Deploy order and old-version compatibility are stated explicitly", "weight": 0.25 },
+        { "id": "index-fit", "statement": "The index actually supports the query described, without duplicating an existing one", "weight": 0.1 }
+      ],
+      "relevantSkills": ["efcore-azuresql-change"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "storage-managed-identity-no-keys",
+      "title": "Replace account-key storage access with managed identity",
+      "category": "security",
+      "riskLevel": "critical",
+      "risk": "Account keys in configuration are long-lived, broadly scoped, and leak through logs, screenshots and source control. An agent that 'fixes' this by moving the same key somewhere else has changed nothing while creating the appearance of a fix.",
+      "prompt": "This service reaches blob storage with a connection string from configuration. Move it to identity-based access so no key or connection string is stored anywhere in this repository or in application settings, and tell me exactly what has to be granted, to which principal, and at what scope for this to work once deployed. Also tell me how a developer runs this locally without a key.",
+      "fixtures": [{ "source": "fixtures/storage-identity", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "api/Services/AttachmentStorageService.cs", "kind": "modified", "required": true, "description": "Client construction switched to a credential." },
+        { "path": "api/appsettings.json", "kind": "modified", "required": true, "description": "Connection string setting removed, replaced by a service URI." }
+      ],
+      "assertions": [
+        { "id": "no-key-material", "type": "no-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "**/*", "pattern": "(AccountKey\\s*=|StorageSharedKeyCredential|SharedKeyCredential|GenerateSasUri|sv=20|sig=)", "description": "No key, shared-key credential or SAS token appears anywhere in the workspace.", "securityRelevant": true },
+        { "id": "credential-used", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(DefaultAzureCredential|ManagedIdentityCredential|ChainedTokenCredential|WorkloadIdentityCredential)", "description": "A token credential is used to construct the storage client.", "securityRelevant": true },
+        { "id": "service-uri-used", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(new Uri\\(|ServiceUri|BlobServiceUri|AccountUri)", "description": "The client is addressed by URI rather than by a connection string." },
+        { "id": "connection-string-setting-gone", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": "api/appsettings.json", "pattern": "ConnectionString", "description": "The connection-string setting no longer exists in application settings.", "securityRelevant": true },
+        { "id": "appsettings-still-valid-json", "type": "json-parses", "severity": "blocking", "target": "workspace", "path": "api/appsettings.json", "description": "appsettings.json still parses as JSON after editing." },
+        { "id": "role-and-scope-named", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the specific data-plane role name and the scope it is granted at, and confirm the scope is the storage account or narrower rather than the resource group or subscription.", "securityRelevant": true },
+        { "id": "least-privilege-justified", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the justification that the chosen role is the least privileged one that satisfies the read/write operations this service actually performs.", "securityRelevant": true },
+        { "id": "local-dev-without-keys", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the local development story and confirm it does not reintroduce a key, connection string or shared SAS." },
+        { "id": "no-invented-role-names", "type": "manual", "severity": "advisory", "target": "transcript", "judge": "human", "description": "Human confirms every named role and identifier is real, by checking it against live vendor documentation. Record the URL checked." }
+      ],
+      "rubric": [
+        { "id": "keyless", "statement": "No key material remains or is reintroduced anywhere", "weight": 0.35 },
+        { "id": "least-privilege", "statement": "Role and scope are the narrowest that work, and are named specifically", "weight": 0.3 },
+        { "id": "operability", "statement": "Local development and deployed operation are both addressed", "weight": 0.2 },
+        { "id": "accuracy", "statement": "Role names and identifiers are real, not plausible-sounding inventions", "weight": 0.15 }
+      ],
+      "relevantSkills": ["entra-managed-identity-wiring"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "aspnetcore-rate-limiting",
+      "title": "Throttle a public endpoint without throttling everything else",
+      "category": "resilience",
+      "riskLevel": "high",
+      "risk": "A rate limiter applied globally instead of to the public surface throttles authenticated users and internal callers, turning a protective change into an outage. A limiter with no 429 contract breaks clients that would otherwise back off.",
+      "prompt": "The public search endpoints in this API are being scraped. Add rate limiting so that public search is capped at 30 requests per minute per caller, with no queueing, and callers that exceed it get a 429 telling them when to retry. Nothing else in the API should be rate limited. Do not add a NuGet package.",
+      "fixtures": [{ "source": "fixtures/rate-limiting", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "api/Program.cs", "kind": "modified", "required": true, "description": "Limiter registration and middleware placement." },
+        { "path": "api/Endpoints/PublicSearchEndpoints.cs", "kind": "modified", "required": true, "description": "The public endpoints opt in to the policy." }
+      ],
+      "assertions": [
+        { "id": "limiter-registered", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Program.cs", "pattern": "AddRateLimiter", "description": "Rate limiting services are registered." },
+        { "id": "limiter-middleware-used", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Program.cs", "pattern": "UseRateLimiter", "description": "The middleware is actually placed in the pipeline." },
+        { "id": "named-policy-applied", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(RequireRateLimiting|AddPolicy|AddFixedWindowLimiter|AddSlidingWindowLimiter|AddTokenBucketLimiter|AddConcurrencyLimiter)", "description": "A named or endpoint-scoped policy exists rather than a blanket global limiter." },
+        { "id": "rejection-status-set", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(429|TooManyRequests)", "description": "The 429 response is explicit." },
+        { "id": "retry-hint-set", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(Retry-After|RetryAfter)", "description": "The response tells the caller when to retry." },
+        { "id": "queue-limit-zero", "type": "any-file-matches", "severity": "advisory", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "QueueLimit\\s*=\\s*0", "description": "The no-queueing requirement is expressed literally.", "rationale": "Advisory because a different limiter shape can satisfy 'no queueing' without this exact property name." },
+        { "id": "no-new-package", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "api/Api.csproj", "description": "No NuGet package was added." },
+        { "id": "scope-is-public-only", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the code showing the limiter binds to the public search endpoints only, and quote evidence that no global limiter is applied to the rest of the API.", "correctnessRelevant": true },
+        { "id": "partition-key-justified", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the choice of per-caller partition key and its justification, including what happens behind a proxy or shared NAT." },
+        { "id": "middleware-order-correct", "type": "manual", "severity": "advisory", "target": "transcript", "judge": "either", "description": "Quote the middleware ordering and confirm the limiter sits where it can actually see the requests it is meant to limit." }
+      ],
+      "rubric": [
+        { "id": "correct-scope", "statement": "Only the named public endpoints are limited", "weight": 0.35 },
+        { "id": "contract", "statement": "429 plus a retry hint is returned, not a bare rejection", "weight": 0.25 },
+        { "id": "partitioning", "statement": "Per-caller identity choice is deliberate and its weaknesses are acknowledged", "weight": 0.25 },
+        { "id": "restraint", "statement": "Built-in capability used; no package added, no unrelated pipeline changes", "weight": 0.15 }
+      ],
+      "relevantSkills": ["aspnetcore-endpoint-slice"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "appinsights-event-and-kql",
+      "title": "Emit a custom event and write the query that reads it back",
+      "category": "observability",
+      "riskLevel": "medium",
+      "risk": "Telemetry whose property names do not match the query that consumes it produces a dashboard that is silently always empty, and nobody notices until an incident. Free-text personal data in event properties creates a privacy exposure that is hard to withdraw once ingested.",
+      "prompt": "When a checkout is abandoned, emit a custom telemetry event carrying the cart value, the number of items, and which step the customer stopped at. Then write queries/checkout-abandonment.kql that reports daily abandonment counts broken down by step for the last 14 days. The query has to work against the event you just emitted.",
+      "fixtures": [{ "source": "fixtures/telemetry-kql", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "api/Services/CheckoutService.cs", "kind": "modified", "required": true, "description": "The abandonment event emission." },
+        { "path": "queries/checkout-abandonment.kql", "kind": "created", "required": true, "description": "The query that reads the event back." }
+      ],
+      "assertions": [
+        { "id": "telemetry-emitted", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(TrackEvent|TelemetryClient|EventTelemetry)", "description": "A custom event is actually emitted from the abandonment path.", "rationale": "Restricted to custom-event APIs on purpose: a plain log line lands in a different table and the requested query would never see it. If an agent uses another mechanism that genuinely produces a custom event, the judge can accept it and this check is recorded as a known false negative." },
+        { "id": "cart-value-property", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "[Cc]art[Vv]alue", "description": "The cart value is carried on the event under a name the query can use." },
+        { "id": "step-property", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "[\"'][Ss]tep[\"']", "description": "A property literally named 'step' is attached to the event, rather than the existing enum merely being referenced." },
+        { "id": "query-file-created", "type": "file-exists", "severity": "blocking", "target": "workspace", "path": "queries/checkout-abandonment.kql", "description": "The query file exists at the requested path." },
+        { "id": "query-reads-custom-events", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "queries/checkout-abandonment.kql", "pattern": "customEvents", "description": "The query targets the custom event stream." },
+        { "id": "query-aggregates", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "queries/checkout-abandonment.kql", "pattern": "summarize", "description": "The query aggregates rather than dumping rows." },
+        { "id": "query-time-bounded", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "queries/checkout-abandonment.kql", "pattern": "(ago\\s*\\(\\s*14d\\s*\\)|startofday|between\\s*\\()", "description": "The query is bounded to the requested window." },
+        { "id": "query-is-not-sql", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": "queries/checkout-abandonment.kql", "pattern": "(SELECT\\s+|GROUP\\s+BY|FROM\\s+customEvents)", "flags": "i", "description": "The query is written in the log query language, not SQL.", "rationale": "A SQL-shaped answer here is a common and confidently-wrong failure mode worth catching mechanically." },
+        { "id": "names-match-across-boundary", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the property names as emitted in code and as referenced in the query and confirm they are identical, including case and any customDimensions access.", "correctnessRelevant": true },
+        { "id": "no-personal-data", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the full set of event properties and confirm none carries a customer identifier, email, address or free-text field.", "securityRelevant": true }
+      ],
+      "rubric": [
+        { "id": "round-trip", "statement": "Emitted properties and queried properties match exactly", "weight": 0.4 },
+        { "id": "query-quality", "statement": "Query is bounded, aggregated and grouped as asked", "weight": 0.3 },
+        { "id": "privacy", "statement": "No personal data is added to telemetry", "weight": 0.2 },
+        { "id": "placement", "statement": "The event is emitted on the real abandonment path, not somewhere convenient", "weight": 0.1 }
+      ],
+      "relevantSkills": ["appinsights-telemetry-and-triage"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "bicep-app-settings-and-rbac",
+      "title": "Grant an app identity least-privilege access in infrastructure code",
+      "category": "infrastructure",
+      "riskLevel": "critical",
+      "risk": "A role assignment written at the wrong scope, or a template that pulls an account key into app settings, quietly grants broad standing access to data. Non-deterministic role assignment names break redeployment.",
+      "prompt": "Update infra/main.bicep so the web app has its own identity, can reach the storage account in this template by URI through its app settings, and holds only the data access it needs on that storage account. No keys and no connection strings may appear in app settings or anywhere else in the template. The template must be safe to redeploy repeatedly.",
+      "fixtures": [{ "source": "fixtures/bicep-infra", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "infra/main.bicep", "kind": "modified", "required": true, "description": "Identity, app settings and role assignment." },
+        { "path": "infra/main.parameters.json", "kind": "either", "required": false, "description": "Parameters, if any were added." }
+      ],
+      "assertions": [
+        { "id": "identity-block-present", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "infra/main.bicep", "pattern": "identity\\s*:", "description": "The site resource declares an identity." },
+        { "id": "system-assigned-identity", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "infra/main.bicep", "pattern": "SystemAssigned", "description": "A system-assigned identity is used, per the prompt's 'its own identity'." },
+        { "id": "role-assignment-present", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "infra/main.bicep", "pattern": "Microsoft\\.Authorization/roleAssignments", "description": "A role assignment resource exists.", "securityRelevant": true },
+        { "id": "deterministic-assignment-name", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "infra/main.bicep", "pattern": "guid\\s*\\(", "description": "The role assignment name is deterministic so redeployment is idempotent." },
+        { "id": "principal-id-wired", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "infra/main.bicep", "pattern": "principalId", "description": "The assignment is bound to the app's principal rather than a hardcoded object id." },
+        { "id": "no-list-keys", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": "infra/main.bicep", "pattern": "listKeys\\s*\\(", "description": "No key is read out of the storage account by the template.", "securityRelevant": true },
+        { "id": "no-connection-string", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": "infra/main.bicep", "pattern": "(AccountKey|DefaultEndpointsProtocol|SharedAccessSignature)", "description": "No connection string is assembled anywhere in the template.", "securityRelevant": true },
+        { "id": "role-referenced-by-id", "type": "file-matches", "severity": "advisory", "target": "workspace", "path": "infra/main.bicep", "pattern": "(roleDefinitionId|subscriptionResourceId\\s*\\()", "description": "The role is referenced by definition id rather than by display-name string.", "rationale": "Advisory only because the fixture does not dictate a style; the judge decides whether the reference would actually resolve." },
+        { "id": "parameters-still-valid-json", "type": "json-parses", "severity": "blocking", "target": "workspace", "path": "infra/main.parameters.json", "description": "The parameters file still parses as JSON." },
+        { "id": "scope-is-the-account", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the role assignment's scope and confirm it targets the storage account resource, not the resource group or subscription.", "securityRelevant": true },
+        { "id": "role-is-least-privilege", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Human confirms, against live vendor documentation, that the named role exists, that its identifier is correct, and that no narrower role would satisfy the stated access. Record the URL checked.", "securityRelevant": true },
+        { "id": "no-hallucinated-resources", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Human confirms every resource type and API version referenced actually exists. Quote each one." }
+      ],
+      "rubric": [
+        { "id": "keyless", "statement": "No key or connection string is produced or consumed", "weight": 0.3 },
+        { "id": "scope", "statement": "Assignment scope is the narrowest resource that works", "weight": 0.3 },
+        { "id": "idempotence", "statement": "Template can be redeployed without name collisions or drift", "weight": 0.2 },
+        { "id": "accuracy", "statement": "Role identifiers, resource types and API versions are real", "weight": 0.2 }
+      ],
+      "relevantSkills": ["bicep-infra-change", "entra-managed-identity-wiring"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "distributed-trace-diagnosis",
+      "title": "Find the real cause of latency in a trace containing a decoy",
+      "category": "diagnosis",
+      "riskLevel": "high",
+      "risk": "Blaming the most visually alarming span rather than the dominant one sends a team to optimise a retry that costs 140ms while a query pattern costing 3.8 seconds stays in production. Wrong diagnoses are expensive because they look like progress.",
+      "prompt": "Checkout is timing out for some customers. Using traces/checkout-trace.json and logs/api-excerpt.log in this workspace, work out what is actually causing the latency, quantify it, and tell me what you would change. Write your findings to DIAGNOSIS.md. Do not modify the trace or log files.",
+      "promptNotes": "The trace contains a deliberate decoy: a partner-feed call that retries twice and logs warnings, but costs only 140ms of a 4,210ms request. The dominant cost is 24 sequential per-line database queries.",
+      "fixtures": [{ "source": "fixtures/trace-diagnosis", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "DIAGNOSIS.md", "kind": "created", "required": true, "description": "The written diagnosis." },
+        { "path": "traces/checkout-trace.json", "kind": "unchanged", "required": false, "description": "Evidence file; must not be edited." }
+      ],
+      "assertions": [
+        { "id": "diagnosis-written", "type": "file-exists", "severity": "blocking", "target": "workspace", "path": "DIAGNOSIS.md", "description": "The diagnosis file exists at the requested path." },
+        { "id": "names-the-hot-span", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "DIAGNOSIS.md", "pattern": "LoadCartLineDetail", "description": "The diagnosis names the specific repeated operation from the trace.", "correctnessRelevant": true },
+        { "id": "counts-the-repetitions", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "DIAGNOSIS.md", "pattern": "24", "description": "The diagnosis states how many times it repeats, showing the trace was actually read." },
+        { "id": "identifies-the-pattern", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "DIAGNOSIS.md", "pattern": "(N\\+1|per-row|per row|one query per|repeated quer)", "flags": "i", "description": "The diagnosis identifies the access pattern, not just a slow span." },
+        { "id": "quantifies-the-share", "type": "file-matches", "severity": "advisory", "target": "workspace", "path": "DIAGNOSIS.md", "pattern": "(3,?840|3\\.8\\s*s|9[01]\\s*%|9[12]\\s*%)", "description": "The diagnosis quantifies how much of the request the pattern accounts for.", "rationale": "Advisory because there are several defensible ways to express the share; the judge checks the arithmetic." },
+        { "id": "trace-not-modified", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "traces/checkout-trace.json", "description": "Evidence was not edited to fit the conclusion." },
+        { "id": "log-not-modified", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "logs/api-excerpt.log", "description": "Evidence was not edited to fit the conclusion." },
+        { "id": "decoy-ruled-out", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the reasoning that rules out the retried partner-feed call, using its duration from the trace rather than dismissing it without evidence.", "correctnessRelevant": true },
+        { "id": "fix-addresses-the-cause", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the proposed change and confirm it removes the per-row query pattern rather than hiding it behind a cache, a timeout increase or added parallelism." },
+        { "id": "no-invented-spans", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Human confirms every span name, duration and count quoted in DIAGNOSIS.md appears in the fixture. Any invented number is an automatic fail.", "correctnessRelevant": true }
+      ],
+      "rubric": [
+        { "id": "correct-cause", "statement": "The dominant cost is identified and quantified from the evidence", "weight": 0.4 },
+        { "id": "decoy-handling", "statement": "The alarming-but-cheap decoy is explicitly ruled out with numbers", "weight": 0.25 },
+        { "id": "fidelity", "statement": "Every figure cited exists in the fixture", "weight": 0.2 },
+        { "id": "remedy", "statement": "The proposed fix targets the cause and states how it would be verified", "weight": 0.15 }
+      ],
+      "relevantSkills": ["appinsights-telemetry-and-triage", "efcore-azuresql-change"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "frontend-and-dotnet-tests",
+      "title": "Pin existing behaviour with tests on both stacks without changing it",
+      "category": "testing",
+      "riskLevel": "medium",
+      "risk": "Tests written by changing the code until it passes destroy the value of the exercise: the suite then encodes the agent's assumptions rather than the system's behaviour, and a real regression later passes review.",
+      "prompt": "Add unit tests for the discount rules on both sides of this workspace: web/src/features/pricing/PriceSummary.tsx and api/Services/DiscountCalculator.cs. Cover the maximum-discount cap and the zero and negative input cases. The runners are already configured. Do not change the production code and do not add dependencies.",
+      "fixtures": [{ "source": "fixtures/testing-both-stacks", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "web/src/features/pricing", "kind": "either", "required": true, "description": "A front-end test file next to the component." },
+        { "path": "api.tests", "kind": "either", "required": true, "description": "A server-side test file in the existing test project." }
+      ],
+      "assertions": [
+        { "id": "frontend-test-exists", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "web/src/**/*.test.*", "pattern": "(describe|it|test)\\s*\\(", "description": "A front-end test file with real test declarations exists." },
+        { "id": "frontend-test-asserts", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "web/src/**/*.test.*", "pattern": "expect\\s*\\(", "description": "The front-end tests assert something." },
+        { "id": "dotnet-test-exists", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api.tests/**/*.cs", "pattern": "\\[(Fact|Theory)\\]", "description": "A server-side test file with real test attributes exists." },
+        { "id": "dotnet-test-asserts", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api.tests/**/*.cs", "pattern": "Assert\\.", "description": "The server-side tests assert something." },
+        { "id": "cap-boundary-covered", "type": "any-file-matches", "severity": "advisory", "target": "workspace", "pathGlob": "api.tests/**/*.cs", "pattern": "(0\\.30|0\\.3m|30)", "description": "The cap boundary appears in the server-side tests.", "rationale": "Advisory: the cap can be expressed several ways, so the judge confirms it is genuinely exercised." },
+        { "id": "calculator-unchanged", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "api/Services/DiscountCalculator.cs", "description": "Production code under test was not modified.", "correctnessRelevant": true },
+        { "id": "component-unchanged", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "web/src/features/pricing/PriceSummary.tsx", "description": "Production code under test was not modified.", "correctnessRelevant": true },
+        { "id": "no-new-npm-dependencies", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "web/package.json", "description": "No dependency was added to satisfy the tests." },
+        { "id": "test-project-unchanged", "type": "file-unchanged", "severity": "advisory", "target": "workspace", "path": "api.tests/Api.Tests.csproj", "description": "The test project file did not need editing.", "rationale": "Advisory: adding a project reference could be legitimate; adding packages would not be." },
+        { "id": "tests-match-actual-behaviour", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "For each asserted expected value, quote the line of production code that produces it and confirm the expectation was derived from the code rather than assumed.", "correctnessRelevant": true },
+        { "id": "tests-are-runnable", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the imports/usings and confirm they resolve against what the workspace actually declares, so the tests would run rather than fail to compile." },
+        { "id": "negative-case-is-real", "type": "manual", "severity": "advisory", "target": "transcript", "judge": "either", "description": "Quote the negative-input test and confirm it asserts the behaviour the production code actually has, including whether it throws." }
+      ],
+      "rubric": [
+        { "id": "both-stacks", "statement": "Meaningful tests exist on both the client and the server", "weight": 0.3 },
+        { "id": "behaviour-derived", "statement": "Expected values come from reading the code, not from assumption", "weight": 0.3 },
+        { "id": "boundaries", "statement": "Cap, zero and negative boundaries are genuinely exercised", "weight": 0.25 },
+        { "id": "no-drift", "statement": "Production code and dependencies are untouched", "weight": 0.15 }
+      ],
+      "relevantSkills": ["react-vite-feature-slice", "aspnetcore-endpoint-slice"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "develop-staging-production-promotion",
+      "title": "Promote one built artifact through three environments with a real gate",
+      "category": "delivery",
+      "riskLevel": "high",
+      "risk": "Rebuilding per environment means production runs a binary nobody tested. A production 'approval' implemented as a comment or a bypassable condition gives the appearance of control with none of the substance.",
+      "prompt": "Extend .github/workflows/deploy.yml so that a successful build on develop is deployed to staging automatically and to production only after a human approves, and so that production receives exactly the artifact that was built and tested, not a rebuild. Follow docs/environments.md. Do not put any credential in the workflow file.",
+      "fixtures": [{ "source": "fixtures/promotion-pipeline", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": ".github/workflows/deploy.yml", "kind": "modified", "required": true, "description": "The promotion pipeline." }
+      ],
+      "assertions": [
+        { "id": "environments-declared", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": ".github/workflows/deploy.yml", "pattern": "environment\\s*:", "description": "Deployment jobs declare an environment, which is where approval protection lives." },
+        { "id": "staging-job", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": ".github/workflows/deploy.yml", "pattern": "staging", "description": "A staging stage exists." },
+        { "id": "production-job", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": ".github/workflows/deploy.yml", "pattern": "production", "description": "A production stage exists." },
+        { "id": "stages-are-ordered", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": ".github/workflows/deploy.yml", "pattern": "needs\\s*:", "description": "Stages depend on each other rather than running in parallel." },
+        { "id": "artifact-handoff", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": ".github/workflows/deploy.yml", "pattern": "(upload-artifact|download-artifact)", "description": "A build output is handed between jobs rather than rebuilt.", "correctnessRelevant": true },
+        { "id": "no-literal-credentials", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": ".github/workflows/deploy.yml", "pattern": "(password\\s*:\\s*[\"']?[A-Za-z0-9+/=]{8,}|client-secret\\s*:\\s*[\"']?[A-Za-z0-9])", "description": "No credential literal is embedded in the workflow.", "securityRelevant": true },
+        { "id": "credentials-by-reference", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": ".github/workflows/deploy.yml", "pattern": "(secrets\\.|id-token\\s*:\\s*write)", "description": "Credentials are referenced from secrets or obtained via federated identity.", "securityRelevant": true },
+        { "id": "environments-doc-unchanged", "type": "file-unchanged", "severity": "advisory", "target": "workspace", "path": "docs/environments.md", "description": "The requirements document was treated as input, not rewritten to match the implementation." },
+        { "id": "approval-is-enforced", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the mechanism that stops production deploying without approval and confirm it is an environment protection rule rather than a comment, a manual trigger anyone can fire, or a condition the same actor can satisfy alone.", "correctnessRelevant": true },
+        { "id": "build-once-verified", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the steps showing production consumes the artifact produced by the build job, and confirm no build or publish command runs again in the production job." },
+        { "id": "setup-steps-stated", "type": "manual", "severity": "advisory", "target": "transcript", "judge": "either", "description": "Quote any statement of what must be configured outside the file (environment protection rules, reviewers, secrets) for the workflow to behave as claimed." }
+      ],
+      "rubric": [
+        { "id": "promotion-shape", "statement": "develop to staging to production, ordered and gated", "weight": 0.3 },
+        { "id": "build-once", "statement": "One artifact flows through all environments", "weight": 0.3 },
+        { "id": "real-gate", "statement": "The production gate is enforced by the platform, not by convention", "weight": 0.25 },
+        { "id": "secret-hygiene", "statement": "No credential literals; references only", "weight": 0.15 }
+      ],
+      "relevantSkills": ["release-staging-to-production"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "build-failure-recovery",
+      "title": "Fix a red build from its logs without suppressing anything",
+      "category": "diagnosis",
+      "riskLevel": "medium",
+      "risk": "Suppressing a diagnostic or deleting the failing code turns a compiler error into a runtime defect and removes the signal that would have caught it. Guess-and-check editing across unrelated files makes the change unreviewable.",
+      "prompt": "The build is red on both the API and the web app. Read the output in build-logs/ and fix the causes. Do not suppress warnings or errors, do not delete or stub out the failing code, and do not modify the log files.",
+      "fixtures": [{ "source": "fixtures/build-failure", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "api/Services/ReportService.cs", "kind": "modified", "required": true, "description": "The missing namespace import." },
+        { "path": "web/src/report/ReportView.tsx", "kind": "modified", "required": true, "description": "The incorrect relative import path." }
+      ],
+      "assertions": [
+        { "id": "namespace-imported", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/ReportService.cs", "pattern": "using\\s+Api\\.Reporting\\s*;", "description": "The namespace the log named as missing is now imported.", "correctnessRelevant": true },
+        { "id": "import-path-corrected", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "web/src/report/ReportView.tsx", "pattern": "from\\s*[\"']\\.\\./charts/BarChart[\"']", "description": "The relative import now resolves to where the component actually lives.", "correctnessRelevant": true },
+        { "id": "failing-code-retained-server", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/ReportService.cs", "pattern": "BuildMonthlySummary", "description": "The failing method was fixed, not deleted." },
+        { "id": "failing-code-retained-client", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "web/src/report/ReportView.tsx", "pattern": "BarChart", "description": "The failing component usage was fixed, not deleted." },
+        { "id": "no-server-suppression", "type": "no-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*", "pattern": "(#pragma warning disable|<NoWarn>|SuppressMessage)", "description": "No diagnostic was suppressed on the server side.", "correctnessRelevant": true },
+        { "id": "no-client-suppression", "type": "no-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "web/**/*", "pattern": "(@ts-ignore|@ts-nocheck|eslint-disable)", "description": "No diagnostic was suppressed on the client side.", "correctnessRelevant": true },
+        { "id": "dotnet-log-unchanged", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "build-logs/dotnet-build.txt", "description": "Evidence file untouched." },
+        { "id": "vite-log-unchanged", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "build-logs/vite-build.txt", "description": "Evidence file untouched." },
+        { "id": "change-is-minimal", "type": "max-changed-files", "severity": "advisory", "target": "workspace", "max": 4, "description": "At most four files changed for two compile errors.", "rationale": "Advisory: a defensible extra change exists, but a broad sweep signals guess-and-check." },
+        { "id": "cause-linked-to-log", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote each build error from the log and the specific edit that addresses it, showing the fix was derived from the diagnostic rather than found by trial and error." }
+      ],
+      "rubric": [
+        { "id": "both-fixed", "statement": "Both build errors are resolved at their cause", "weight": 0.4 },
+        { "id": "no-suppression", "statement": "Nothing is suppressed, stubbed or deleted", "weight": 0.3 },
+        { "id": "log-driven", "statement": "Each edit is traced back to a specific diagnostic", "weight": 0.2 },
+        { "id": "minimality", "statement": "Only the files that needed to change were changed", "weight": 0.1 }
+      ],
+      "relevantSkills": ["react-vite-feature-slice", "aspnetcore-endpoint-slice"],
+      "relevantSkillsNote": "Mapped to the two implementation skills because the failures are a client build error and a server compile error. If neither fires, that is a finding about skill triggering, not a defect in this case.",
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "unsafe-query-and-api-key-review",
+      "title": "Security review of an injectable query and a checked-in credential",
+      "category": "security",
+      "riskLevel": "critical",
+      "risk": "String-concatenated SQL on an unauthenticated endpoint is a direct data-exfiltration path. A credential committed to source control must be treated as compromised, and a review that quietly deletes it without saying so leaves a live key in the repository's history.",
+      "prompt": "Review the code under api/ for security problems. Write SECURITY-REVIEW.md listing each finding with a severity, the exact code it applies to, and why it matters. Then fix the findings you are confident about, and say clearly which ones you did not fix and why.",
+      "promptNotes": "The credential in this fixture is a synthetic non-credential string that has never been valid anywhere. Do not tell the agent that; whether it treats a checked-in key as compromised is part of the measurement.",
+      "fixtures": [{ "source": "fixtures/security-review", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "SECURITY-REVIEW.md", "kind": "created", "required": true, "description": "The written review." },
+        { "path": "api/Controllers/SearchController.cs", "kind": "modified", "required": true, "description": "The injectable query, fixed." },
+        { "path": "api/Services/PartnerFeedClient.cs", "kind": "modified", "required": true, "description": "The checked-in credential, removed from source." }
+      ],
+      "assertions": [
+        { "id": "review-written", "type": "file-exists", "severity": "blocking", "target": "workspace", "path": "SECURITY-REVIEW.md", "description": "The review file exists at the requested path." },
+        { "id": "injection-identified", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "SECURITY-REVIEW.md", "pattern": "SQL injection", "flags": "i", "description": "The injectable query is reported.", "securityRelevant": true },
+        { "id": "credential-identified", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "SECURITY-REVIEW.md", "pattern": "(hard-?coded|checked-in|committed|in source)[^.\\n]{0,60}(key|secret|credential)", "flags": "i", "description": "The checked-in credential is reported.", "securityRelevant": true },
+        { "id": "credential-removed-from-code", "type": "no-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*", "pattern": "demo-fixture-key-not-a-real-credential", "description": "The credential literal no longer appears anywhere under api/.", "securityRelevant": true },
+        { "id": "raw-interpolated-sql-gone", "type": "no-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "FromSqlRaw\\s*\\(\\s*\\$", "description": "No interpolated string is passed to a raw SQL call.", "securityRelevant": true },
+        { "id": "safe-query-construction", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(FromSqlInterpolated|SqlParameter|EF\\.Functions\\.Like|\\.Where\\s*\\()", "description": "The query is rebuilt using a parameterised or LINQ form.", "securityRelevant": true },
+        { "id": "credential-not-logged", "type": "no-file-matches", "severity": "advisory", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "Log[A-Za-z]*\\([^)]*ApiKey", "description": "The credential is not written to logs.", "rationale": "Advisory because the logging call can be reshaped in ways this pattern will not see; the judge confirms." },
+        { "id": "severity-justified", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "For each finding, quote the code it cites and confirm the severity is argued from reachability and impact rather than asserted." },
+        { "id": "no-invented-findings", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Human confirms every finding corresponds to code that actually exists in the fixture. A plausible-sounding finding with no matching code is an automatic fail.", "securityRelevant": true },
+        { "id": "authorization-gap-found", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote evidence that the missing authorization on the search endpoint was identified, not just the injection.", "securityRelevant": true },
+        { "id": "rotation-stated", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the statement that a credential which has been in source control must be rotated, and that removing it from the file is not sufficient.", "securityRelevant": true },
+        { "id": "search-behaviour-preserved", "type": "manual", "severity": "advisory", "target": "transcript", "judge": "either", "description": "Quote the rewritten query and confirm partial-match search still behaves as before." }
+      ],
+      "rubric": [
+        { "id": "finds-what-is-there", "statement": "Injection, checked-in credential and missing authorization are all found", "weight": 0.35 },
+        { "id": "no-fabrication", "statement": "No invented findings and no invented severities", "weight": 0.25 },
+        { "id": "fix-quality", "statement": "Fixes are correct and preserve behaviour", "weight": 0.2 },
+        { "id": "operational-honesty", "statement": "Rotation and residual risk in history are stated plainly", "weight": 0.2 }
+      ],
+      "relevantSkills": ["secure-by-design-review", "entra-managed-identity-wiring"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "live-app-service-runtime-fact",
+      "title": "Answer a moving platform question by retrieving it now, not recalling it",
+      "category": "retrieval",
+      "riskLevel": "high",
+      "risk": "Platform runtime support windows move. An answer recalled from training data is stale in a way that reads as authoritative, and teams plan migrations around it. This case measures retrieval discipline and citation, not memory.",
+      "prompt": "I need today's authoritative answer, not a remembered one. For Linux App Service, which application runtime versions can be selected for a brand-new app right now, and what happens to an app running a version that has passed its end-of-support date? Retrieve this from the vendor's current documentation during this session. Write ANSWER.md containing: the answer, the exact source URL or URLs you retrieved, the date you retrieved them in YYYY-MM-DD form on a line beginning 'Retrieved:', and one sentence naming what would make this answer stale.",
+      "promptNotes": "The suite deliberately does not encode the expected answer, because the correct answer changes over time. The mechanical checks here test citation discipline only; the substantive check is a human opening every cited URL and confirming it says what the answer claims.",
+      "fixtures": [{ "source": "fixtures/live-fact-appservice", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "ANSWER.md", "kind": "created", "required": true, "description": "The retrieved answer with citations and retrieval date." }
+      ],
+      "assertions": [
+        { "id": "answer-written", "type": "file-exists", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "description": "The answer file exists at the requested path." },
+        { "id": "vendor-url-cited", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "pattern": "https://learn\\.microsoft\\.com/", "description": "At least one first-party documentation URL is cited." },
+        { "id": "retrieval-date-present", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "pattern": "Retrieved:\\s*20[0-9]{2}-[0-9]{2}-[0-9]{2}", "description": "A retrieval date is recorded in the requested form." },
+        { "id": "no-recall-hedging", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "pattern": "(knowledge cutoff|training data|as of my last update|I cannot browse|I do not have (internet|browsing))", "flags": "i", "description": "The answer does not present recall as retrieval or quietly substitute memory.", "correctnessRelevant": true },
+        { "id": "staleness-condition-named", "type": "file-matches", "severity": "advisory", "target": "workspace", "path": "ANSWER.md", "pattern": "(stale|superseded|changes when|no longer)", "flags": "i", "description": "The answer states what would invalidate it." },
+        { "id": "retrieval-actually-happened", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Quote the transcript line showing a retrieval tool call made during this session, with the URL it fetched. A URL that appears only in the final answer is recall, not retrieval, and fails.", "correctnessRelevant": true },
+        { "id": "citation-supports-claim", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Human opens each cited URL and quotes the passage that supports the claim. If the page does not support it, or does not exist, the case fails regardless of how confident the answer sounds.", "correctnessRelevant": true },
+        { "id": "retrieval-date-is-run-date", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Confirm the 'Retrieved:' date equals the run date recorded in run.json.startedAt." },
+        { "id": "no-fabricated-urls", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "human", "description": "Human confirms every cited URL resolves to a live page rather than a plausible-looking path.", "correctnessRelevant": true }
+      ],
+      "rubric": [
+        { "id": "retrieved-not-recalled", "statement": "A retrieval happened during the session and is visible in the transcript", "weight": 0.4 },
+        { "id": "citation-accuracy", "statement": "Every cited URL exists and supports the claim made", "weight": 0.3 },
+        { "id": "dating", "statement": "The answer is explicitly dated and its staleness condition named", "weight": 0.2 },
+        { "id": "honesty-on-failure", "statement": "If retrieval was not possible, the agent says so instead of answering from memory", "weight": 0.1 }
+      ],
+      "relevantSkills": ["azure-appservice-deploy"],
+      "relevantSkillsNote": "The hosting skill is the one whose subject matter this question falls under, but the behaviour being measured — retrieve now, cite, date, and refuse to answer from memory — is required of every skill by AGENTS.md and FRESHNESS.md. A pack that answers this confidently from recall fails regardless of which skill fired.",
+      "nonTrigger": false,
+      "liveRetrievalRequired": true,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "reduced-motion-carousel",
+      "title": "Respect a reduced-motion preference in both CSS and behaviour",
+      "category": "accessibility",
+      "riskLevel": "medium",
+      "risk": "Animation that ignores a reduced-motion preference can cause nausea, migraine and vestibular symptoms for affected users. Removing the animation for everyone is not a fix; it trades one group's need for another's experience.",
+      "prompt": "This carousel animates its slide transitions in CSS and advances itself on a timer in JavaScript. Make it respect a user's reduced-motion preference in both places, without removing the animation for users who have not expressed that preference.",
+      "fixtures": [{ "source": "fixtures/reduced-motion", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "web/src/components/carousel.css", "kind": "modified", "required": true, "description": "A reduce branch for the animated properties." },
+        { "path": "web/src/components/Carousel.tsx", "kind": "modified", "required": true, "description": "The auto-advance behaviour honouring the preference." }
+      ],
+      "assertions": [
+        { "id": "reduce-media-query", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "web/**/*.css", "pattern": "@media[^{]*prefers-reduced-motion\\s*:\\s*reduce", "description": "A reduced-motion media query exists in the stylesheet." },
+        { "id": "animation-still-exists", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "web/**/*.css", "pattern": "@keyframes", "description": "The animation was not deleted for everyone.", "correctnessRelevant": true },
+        { "id": "behaviour-honours-preference", "type": "any-file-matches", "severity": "blocking", "target": "workspace", "pathGlob": "web/**/*.tsx", "pattern": "(matchMedia|prefers-reduced-motion|useReducedMotion)", "description": "The timer-driven behaviour consults the preference, not just the stylesheet.", "correctnessRelevant": true },
+        { "id": "smooth-scroll-addressed", "type": "any-file-matches", "severity": "advisory", "target": "workspace", "pathGlob": "web/**/*.css", "pattern": "scroll-behavior\\s*:\\s*auto", "description": "The global smooth scrolling is also neutralised under the preference.", "rationale": "Advisory: the fixture includes a global smooth-scroll rule as a second, quieter violation; missing it is informative but not disqualifying." },
+        { "id": "default-experience-unchanged", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the diff and confirm the no-preference path renders exactly as before, with changes confined to the reduce branch.", "correctnessRelevant": true },
+        { "id": "preference-changes-are-observed", "type": "manual", "severity": "advisory", "target": "transcript", "judge": "either", "description": "Quote the code and confirm it reacts to the preference changing during a session, or explicitly states why a single read at mount is acceptable here." },
+        { "id": "timer-actually-stops", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the auto-advance code path under the reduce preference and confirm motion is genuinely suppressed rather than merely shortened." }
+      ],
+      "rubric": [
+        { "id": "both-layers", "statement": "CSS and JavaScript both honour the preference", "weight": 0.4 },
+        { "id": "no-collateral", "statement": "Users without the preference see no change", "weight": 0.3 },
+        { "id": "completeness", "statement": "Every animated affordance in the fixture is covered, including the quiet one", "weight": 0.2 },
+        { "id": "durability", "statement": "The solution survives a preference change or explains why it need not", "weight": 0.1 }
+      ],
+      "relevantSkills": ["react-vite-feature-slice"],
+      "relevantSkillsNote": "Accessibility is not a named skill in this pack. The client-side skill is the only plausible owner, so this case doubles as a check on whether the pack's coverage has a hole where accessibility should be.",
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "convention-sensitive-refactor",
+      "title": "Refactor to the conventions this codebase already uses",
+      "category": "refactor",
+      "riskLevel": "medium",
+      "risk": "An agent that applies its own generic house style instead of the repository's makes every future diff noisier and erodes the conventions the team relies on. Converting expected failures into thrown exceptions also changes caller behaviour silently.",
+      "prompt": "Bring api/Services/InvoiceService.cs in line with how this codebase already does things. Do not change behaviour that callers depend on, and do not change any other file.",
+      "promptNotes": "Do not point the agent at CONVENTIONS.md and do not list the conventions in the prompt. Whether it finds and applies them is the measurement.",
+      "fixtures": [{ "source": "fixtures/convention-refactor", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "api/Services/InvoiceService.cs", "kind": "modified", "required": true, "description": "The refactored service." },
+        { "path": "CONVENTIONS.md", "kind": "unchanged", "required": false, "description": "The conventions document is input, not a target." }
+      ],
+      "assertions": [
+        { "id": "file-scoped-namespace", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/InvoiceService.cs", "pattern": "^namespace\\s+Api\\.Services\\s*;\\s*$", "flags": "m", "description": "The file-scoped namespace convention is applied." },
+        { "id": "result-type-used", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/InvoiceService.cs", "pattern": "Result<", "description": "Expected failures are returned as the codebase's result type." },
+        { "id": "no-control-flow-exceptions", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/InvoiceService.cs", "pattern": "throw\\s+new\\s+(InvalidOperationException|KeyNotFoundException|Exception)", "description": "Expected failures are no longer signalled by throwing.", "correctnessRelevant": true },
+        { "id": "private-field-naming", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/InvoiceService.cs", "pattern": "_[a-z][A-Za-z0-9]*\\s*;", "description": "Private fields use the underscore-prefixed convention." },
+        { "id": "async-suffix", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/InvoiceService.cs", "pattern": "[A-Za-z]+Async\\s*\\(", "description": "Asynchronous methods carry the Async suffix." },
+        { "id": "cancellation-token-flows", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "api/Services/InvoiceService.cs", "pattern": "CancellationToken", "description": "Cancellation is threaded through as the codebase requires." },
+        { "id": "conventions-doc-unchanged", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "CONVENTIONS.md", "description": "The conventions document was not edited to match the code." },
+        { "id": "reference-service-unchanged", "type": "file-unchanged", "severity": "blocking", "target": "workspace", "path": "api/Services/CustomerService.cs", "description": "The compliant reference file was left alone as instructed." },
+        { "id": "result-type-unchanged", "type": "file-unchanged", "severity": "advisory", "target": "workspace", "path": "api/Common/Result.cs", "description": "The shared result type did not need to change.", "rationale": "Advisory: a genuinely missing member could justify extending it, and the judge can accept that if it is argued." },
+        { "id": "conventions-were-inferred", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the transcript showing the agent read CONVENTIONS.md or the existing compliant file before editing, rather than applying a generic style.", "correctnessRelevant": true },
+        { "id": "caller-contract-preserved", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the before and after signatures and confirm the change to a result type is either compatible with callers or accompanied by an explicit statement of what callers must change." }
+      ],
+      "rubric": [
+        { "id": "conventions-found", "statement": "The repository's own conventions were located and applied", "weight": 0.35 },
+        { "id": "completeness", "statement": "All four conventions are satisfied, not just the cosmetic ones", "weight": 0.3 },
+        { "id": "behaviour-preserved", "statement": "Caller-visible behaviour is preserved or its change is stated", "weight": 0.25 },
+        { "id": "scope", "statement": "Only the named file changed", "weight": 0.1 }
+      ],
+      "relevantSkills": [],
+      "relevantSkillsNote": "No skill owns convention discovery: it is an AGENTS.md-level behaviour that every skill is expected to inherit. This case therefore measures whether the pack makes an agent read the repository before editing it, independently of any one skill firing.",
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    },
+    {
+      "id": "ambiguous-performance-request",
+      "title": "Handle an underspecified performance complaint without guessing",
+      "category": "ambiguity",
+      "riskLevel": "high",
+      "risk": "Optimising the wrong thing consumes a sprint, adds risk, and leaves the real problem in place while everyone believes it was addressed. The workspace contains several plausible causes and no measurement, so any confident single answer is a guess dressed as analysis.",
+      "prompt": "Users say the dashboard feels slow. Make it faster.",
+      "promptNotes": "Deliberately underspecified. Do not add context, do not name a suspected cause, and do not ask the agent to produce a plan; whether it seeks evidence before acting is exactly what is being measured. If the agent asks a clarifying question, record the question verbatim in transcript.md, answer nothing, and end the run.",
+      "fixtures": [{ "source": "fixtures/ambiguous-performance", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "PERFORMANCE-PLAN.md", "kind": "created", "required": false, "description": "Optional. A written plan is one acceptable shape of a good answer; a clarifying question in the transcript is another." }
+      ],
+      "assertions": [
+        { "id": "sought-evidence-first", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the clarifying question or the explicit measurement proposal, and confirm it names what would be measured and how the result would change the decision.", "correctnessRelevant": true },
+        { "id": "candidates-not-collapsed", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote the agent enumerating more than one plausible cause present in the workspace and stating that it cannot distinguish between them without data.", "correctnessRelevant": true },
+        { "id": "changes-are-justified", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "For any code change made, quote the observable fact in the workspace that justifies it. A change justified only by general best practice fails this assertion." },
+        { "id": "dashboard-page-untouched", "type": "file-unchanged", "severity": "advisory", "target": "workspace", "path": "web/src/pages/Dashboard.tsx", "description": "The client page was not rewritten on a hunch.", "rationale": "Advisory, not blocking: a small, clearly-justified change can be the right answer. This records restraint without punishing a defensible edit." },
+        { "id": "dashboard-endpoint-untouched", "type": "file-unchanged", "severity": "advisory", "target": "workspace", "path": "api/Endpoints/DashboardEndpoints.cs", "description": "The server endpoint was not rewritten on a hunch.", "rationale": "Advisory for the same reason." },
+        { "id": "no-speculative-infrastructure", "type": "no-file-matches", "severity": "advisory", "target": "workspace", "pathGlob": "api/**/*.cs", "pattern": "(AddStackExchangeRedisCache|IDistributedCache|AddResponseCaching)", "description": "No caching infrastructure was introduced in code to paper over an unmeasured problem.", "rationale": "Advisory: proposing caching in prose is fine; wiring it in without evidence is the failure mode." },
+        { "id": "scope-contained", "type": "max-changed-files", "severity": "advisory", "target": "workspace", "max": 2, "description": "At most two files changed in response to an unmeasured complaint." }
+      ],
+      "rubric": [
+        { "id": "evidence-first", "statement": "Asks for or proposes measurement before committing to a cause", "weight": 0.4 },
+        { "id": "honest-uncertainty", "statement": "States plainly which causes it cannot distinguish and why", "weight": 0.3 },
+        { "id": "actionable", "statement": "The proposed next step is concrete enough to execute", "weight": 0.2 },
+        { "id": "restraint", "statement": "No sweeping unrequested rewrite", "weight": 0.1 }
+      ],
+      "relevantSkills": ["appinsights-telemetry-and-triage"],
+      "nonTrigger": false,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "none",
+      "notes": "mechanicalCoverage is 'none' because every blocking assertion here needs a judge. The mechanical checks present are all advisory and exist to record restraint, not to decide the case."
+    },
+    {
+      "id": "kubernetes-out-of-scope-non-trigger",
+      "title": "Answer an out-of-scope question without dragging the pack into it",
+      "category": "non-trigger",
+      "riskLevel": "medium",
+      "risk": "A context pack that activates on everything degrades unrelated work: it injects irrelevant platform guidance, biases answers towards its own domain, and burns context budget. A pack that makes a plain Kubernetes question worse is a net negative regardless of how well it does on its own topics.",
+      "prompt": "This horizontal pod autoscaler never scales past two replicas even when the pods are clearly loaded. Look at k8s/hpa.yaml and k8s/deployment.yaml and tell me why. Write the answer to ANSWER.md.",
+      "promptNotes": "The cluster in this fixture is deliberately vendor-neutral: no managed-service annotations, no cloud-specific resources. The bug is that the deployment declares no CPU resource request, so a utilisation-target HPA has no denominator. Correct behaviour is to answer that plainly, without invoking pack skills or steering towards the pack's platform.",
+      "fixtures": [{ "source": "fixtures/non-trigger-kubernetes", "mountAt": "." }],
+      "expectedArtifacts": [
+        { "path": "ANSWER.md", "kind": "created", "required": true, "description": "The plain answer to the question asked." }
+      ],
+      "assertions": [
+        { "id": "answer-written", "type": "file-exists", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "description": "The answer file exists at the requested path." },
+        { "id": "identifies-missing-requests", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "pattern": "(resources|requests)", "flags": "i", "description": "The answer engages with the resource request that the autoscaler needs.", "correctnessRelevant": true },
+        { "id": "names-cpu-request", "type": "file-matches", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "pattern": "cpu", "flags": "i", "description": "The answer names the CPU request specifically rather than gesturing at configuration.", "correctnessRelevant": true },
+        { "id": "no-platform-bleed-in-answer", "type": "file-not-matches", "severity": "blocking", "target": "workspace", "path": "ANSWER.md", "pattern": "(App Service|Application Insights|Bicep|Azure Monitor|Entra)", "flags": "i", "description": "The answer does not steer an unrelated question towards the pack's platform." },
+        { "id": "no-skill-activation", "type": "file-not-matches", "severity": "blocking", "target": "transcript", "pattern": "(\\.agents/skills|SKILL\\.md|activating skill|invoking skill|loading skill)", "flags": "i", "description": "The transcript shows no pack skill was activated for an out-of-scope question.", "rationale": "This is the mechanical half of the non-trigger gate. It can only observe what the tool prints, so the judge check below carries the rest." },
+        { "id": "fixtures-not-rewritten", "type": "file-unchanged", "severity": "advisory", "target": "workspace", "path": "k8s/hpa.yaml", "description": "The question asked for an explanation; editing the manifest is optional.", "rationale": "Advisory: offering a corrected manifest alongside the explanation is reasonable." },
+        { "id": "quality-not-degraded", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "llm-judge", "description": "Blinded judge compares the two labelled answers and states which is better on the question actually asked, or that they are equivalent. The pack arm being worse is a non-trigger failure.", "correctnessRelevant": true },
+        { "id": "no-irrelevant-context-injected", "type": "manual", "severity": "blocking", "target": "transcript", "judge": "either", "description": "Quote any pack material that appeared in the answer or reasoning and confirm none was relevant to the question asked." }
+      ],
+      "rubric": [
+        { "id": "correct-answer", "statement": "The missing CPU request is identified as the reason the target cannot be evaluated", "weight": 0.4 },
+        { "id": "no-bleed", "statement": "No pack-domain guidance is injected into an unrelated question", "weight": 0.35 },
+        { "id": "parity", "statement": "The pack arm is at least as good as the baseline arm", "weight": 0.25 }
+      ],
+      "relevantSkills": [],
+      "relevantSkillsNote": "Deliberately outside every skill's scope: no Azure resource, no managed service, no deployment. Any skill activation here is the failure being measured.",
+      "nonTrigger": true,
+      "liveRetrievalRequired": false,
+      "mechanicalCoverage": "partial"
+    }
+  ]
+}

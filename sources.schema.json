@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/joshualukestewart/josh-stewart-cloud-context-pack/main/sources.schema.json",
+  "title": "Joshua Stewart Cloud Context Pack - Source Registry Schema",
+  "description": "Schema for sources.json, the knowledge-supply-chain registry of external sources this pack's skills cite or check for freshness. Validated offline by scripts/check-freshness.mjs, which implements a small hand-written subset of JSON Schema (type, required, properties, items, enum, pattern, format: date|uri, minItems, minLength, minimum, additionalProperties) sufficient to check this file — it is not a general-purpose JSON Schema engine. Entries are link-only by default: this registry records where a fact lives, never the fact itself. The one exception is the optional versionProbe object, which permits a bounded fetch of a small machine-readable version document; see its own description. The $id above names this repository's intended canonical GitHub location; the repository has not been published/pushed yet, so treat this URL as aspirational until confirmed reachable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registryVersion", "sources"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "registryVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semantic version of the registry file's own shape, independent of the pack's VERSION."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional free-text notes about the registry as a whole."
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "canonicalUrl",
+          "authority",
+          "licenseTreatment",
+          "retrievalPolicy",
+          "volatility",
+          "owner",
+          "lastReviewed",
+          "reviewAfterDays",
+          "appliesTo"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "Stable, unique, kebab-case identifier for this source."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable name of the source."
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "The single authoritative URL for this source. Prefer a stable/canonical form over a redirect."
+          },
+          "authority": {
+            "type": "string",
+            "enum": [
+              "primary-standard",
+              "official-tool-docs",
+              "license-authority",
+              "community-convention",
+              "repository-canonical",
+              "other"
+            ],
+            "description": "What kind of authority this source has over the topic it covers."
+          },
+          "licenseTreatment": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Cautious, explicit statement of how this pack is permitted to use the source: link-only, format-inspiration-no-copy, verbatim-reuse-under-named-license, etc. Must never assert a right the pack has not actually verified."
+          },
+          "retrievalPolicy": {
+            "type": "string",
+            "enum": [
+              "link-only",
+              "metadata-only",
+              "pinned-snapshot",
+              "manual-review-only"
+            ],
+            "description": "link-only: never fetched by tooling, human-checked only. metadata-only: scripts/check-freshness.mjs may perform a headers-only (HEAD, or GET with body immediately discarded) reachability/drift check; body content is never read or stored. pinned-snapshot: a specific commit/version was reviewed and pinned via pinnedCommit; no live drift checking. manual-review-only: never checked automatically, by policy, regardless of technical feasibility."
+          },
+          "volatility": {
+            "type": "string",
+            "enum": ["stable", "versioned", "volatile"],
+            "description": "stable: rarely changes in ways that affect this pack (e.g. a ratified legal text). versioned: changes in discrete, citable releases. volatile: can change at any time without a version marker (e.g. a living docs page)."
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Person or role accountable for reviewing this entry."
+          },
+          "lastReviewed": {
+            "type": "string",
+            "format": "date",
+            "description": "ISO 8601 date (YYYY-MM-DD) this entry was last human-reviewed against its canonicalUrl. Must not be in the future."
+          },
+          "reviewAfterDays": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Days after lastReviewed before this entry is considered overdue for re-review. Should track the volatility tier (see FRESHNESS.md)."
+          },
+          "appliesTo": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "Repository-relative paths whose content depends on this source staying accurate."
+          },
+          "versionProbe": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["url", "format", "testedVersion", "alertOn"],
+            "description": "Optional. Opts this source into a bounded, machine-readable version check, run only by scripts/check-freshness.mjs --network via scripts/lib/version-probe.mjs. Use it only where the dependency has a primary machine-readable registry; the human-readable documentation stays in canonicalUrl. The probe fetches ONE small JSON version document under hard size and time limits, extracts only the latest stable version string, and discards the rest — it never reads, stores or reproduces documentation prose. A probe can only ever open review work (exit code 2); it never edits this file and never marks a version current on its own. Note: scripts/lib/version-probe.mjs additionally tolerates a free-text 'notes' key; this schema deliberately does not, so every probe in this repository keeps the same four-field shape.",
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "HTTPS URL of the primary machine-readable version registry for this dependency (not a documentation page). Must return JSON."
+              },
+              "format": {
+                "type": "string",
+                "enum": ["npm-latest", "nuget-index", "dotnet-release-index", "github-latest"],
+                "description": "How to extract a version from the response. npm-latest: an npm registry document exposing dist-tags.latest or version. nuget-index: a NuGet flat-container index exposing a 'versions' array. dotnet-release-index: the .NET releases-index.json, from which the highest stable latest-release across supported channels is taken. github-latest: a GitHub releases/latest document exposing tag_name."
+              },
+              "testedVersion": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?(?:\\+[0-9A-Za-z][0-9A-Za-z.-]*)?$",
+                "description": "The exact version this pack's content is coordinated to, in semver form. This is an anchor, not a claim that the version is current: FRESHNESS.md records, per entry, whether that version was executed here or only resolved from its registry. Update it only after a human re-checks the affected content."
+              },
+              "alertOn": {
+                "type": "string",
+                "enum": ["major", "minor", "any"],
+                "description": "How large a bump above testedVersion should open review work. major: only a new major line. minor: a new major or minor line. any: any newer stable release. Smaller bumps are still recorded, just not escalated."
+              }
+            }
+          },
+          "pinnedCommit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{7,40}$",
+            "description": "Optional. Git commit SHA (short or full) of permissibly reused repository material, when retrievalPolicy is pinned-snapshot. Omit entirely when not applicable; do not use a placeholder value."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional free-text context, e.g. observed redirects or caveats found during review."
+          }
+        }
+      }
+    }
+  }
+}

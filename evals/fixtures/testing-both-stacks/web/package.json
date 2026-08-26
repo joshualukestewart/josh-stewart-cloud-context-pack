@@ -1,0 +1,19 @@
+{
+  "name": "pricing-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.0.0",
+    "jsdom": "24.1.1",
+    "typescript": "5.5.4",
+    "vitest": "2.0.5"
+  }
+}

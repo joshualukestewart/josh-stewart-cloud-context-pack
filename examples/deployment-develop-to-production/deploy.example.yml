@@ -1,0 +1,210 @@
+# examples/deployment-develop-to-production/deploy.example.yml
+#
+# Joshua Stewart Cloud Context Pack - ILLUSTRATIVE ONLY. MIT licensed,
+# original content. Deliberately named ".example.yml" and kept outside
+# .github/workflows/ so it is never executed.
+#
+# SCHEMA MECHANISM: this example illustrates a repository that uses EF
+# migrations. The repository this pack was written for instead uses explicit
+# idempotent dual-provider bootstrap DDL (SQLite dev/staging, SQL Server
+# production). The release ORDERING below transfers; the dotnet ef commands
+# do not. Establish the mechanism by inspection - see the
+# efcore-azuresql-change skill - and never add a second one.
+#
+# TOPOLOGY: staging and production are TWO SEPARATE App Services on ONE
+# shared plan. There are NO deployment slots and NO swap - the plan tier
+# does not include them. Promotion is a deploy of the same artifact to the
+# production app; rollback is a redeploy of the previous known-good
+# artifact. If a consuming repository really does use slots, do not copy
+# this shape - inspect that repository and retrieve current slot semantics
+# live.
+#
+# Demonstrates: build once and promote; federated (OIDC) auth with no
+# stored cloud credential; develop -> staging app and main -> production
+# app; migration as a release step; verify-after-deploy with an explicit
+# rollback target.
+#
+# Action versions, action inputs and CLI flags below WILL age. Retrieve
+# current ones live before adapting - see ../../references/links.md.
+
+name: deploy (example)
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+# Least privilege. id-token is what makes federated login possible without
+# a stored secret.
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20.x'
+  ARTIFACT_NAME: app-package
+
+jobs:
+  # -------------------------------------------------------------------
+  # Build ONCE. Every environment deploys this exact artifact.
+  # -------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      buildId: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore and test API
+        run: |
+          dotnet restore
+          dotnet build --no-restore -warnaserror
+          dotnet test --no-build
+
+      - name: Build client
+        working-directory: web
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+          npm test -- --run
+
+      # Generated here so a human can review the SQL as a build artifact,
+      # before it is ever applied to a database.
+      - name: Generate idempotent migration script
+        run: |
+          dotnet tool restore
+          dotnet ef migrations script --idempotent \
+            --project src/Data --startup-project src/Api \
+            --output artifacts/migration.sql
+
+      - name: Publish API
+        run: dotnet publish src/Api -c Release -o artifacts/api
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts/
+
+  # -------------------------------------------------------------------
+  # develop -> the STAGING App Service
+  # -------------------------------------------------------------------
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts
+
+      # Federated credential. Current azure/login guidance recommends secrets
+      # for these identifiers so untrusted event data cannot select an identity.
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_STAGING }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_STAGING }}
+
+      # CI's own database identity - not the application's.
+      - name: Apply migration
+        run: |
+          az sql db show --name "${{ vars.SQL_DATABASE_STAGING }}" \
+            --server "${{ vars.SQL_SERVER_STAGING }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_STAGING }}" --output none
+          echo "Apply artifacts/migration.sql using CI's Entra identity here."
+
+      - name: Deploy to the staging App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.WEBAPP_NAME_STAGING }}
+          package: artifacts/api
+
+      # No slot to warm: the app restarts into the new build, so retry
+      # until it is serving rather than assuming it is ready.
+      - name: Verify health
+        run: |
+          curl --fail --silent --show-error --retry 15 --retry-all-errors \
+            "https://${{ vars.WEBAPP_HOSTNAME_STAGING }}/healthz"
+
+  # -------------------------------------------------------------------
+  # main -> the PRODUCTION App Service (a separate app, not a slot)
+  # -------------------------------------------------------------------
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    # An 'environment' gives GitHub a place to require approval before the
+    # job starts, and to scope environment-specific values.
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_PRODUCTION }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_PRODUCTION }}
+
+      # Record the rollback target BEFORE changing anything. Without a slot
+      # to swap back to, rollback is a redeploy of this exact artifact.
+      - name: Record rollback target
+        run: |
+          echo "Rollback target for this release:"
+          echo "  previous known-good commit: ${{ vars.LAST_KNOWN_GOOD_SHA }}"
+          echo "  redeploy that artifact to ${{ vars.WEBAPP_NAME_PRODUCTION }} if verification fails."
+
+      # Additive migration first, so the currently running version keeps
+      # working and a rollback to the previous artifact stays possible.
+      - name: Apply migration
+        run: |
+          az sql db show --name "${{ vars.SQL_DATABASE_PRODUCTION }}" \
+            --server "${{ vars.SQL_SERVER_PRODUCTION }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_PRODUCTION }}" --output none
+          echo "Apply artifacts/migration.sql using CI's Entra identity here."
+
+      - name: Deploy to the production App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.WEBAPP_NAME_PRODUCTION }}
+          package: artifacts/api
+
+      # The app is already live at this point - there is no pre-warmed
+      # instance standing by. Verify immediately and be ready to redeploy.
+      - name: Verify production health
+        run: |
+          curl --fail --silent --show-error --retry 15 --retry-all-errors \
+            "https://${{ vars.WEBAPP_HOSTNAME_PRODUCTION }}/healthz"
+
+      # Rollback is a redeploy of the previous known-good artifact, not a
+      # swap. It takes a full deployment cycle - budget for that.
+      - name: Roll back on failure
+        if: failure()
+        run: |
+          echo "Verification failed. Redeploy the previous known-good artifact:"
+          echo "  commit ${{ vars.LAST_KNOWN_GOOD_SHA }} -> ${{ vars.WEBAPP_NAME_PRODUCTION }}"
+          echo "Additive-only migrations are what make that redeploy safe."
+          exit 1

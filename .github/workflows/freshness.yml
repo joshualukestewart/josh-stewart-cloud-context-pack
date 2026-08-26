@@ -1,0 +1,123 @@
+name: Knowledge Freshness Check
+
+# Runs scripts/check-freshness.mjs on a schedule and opens/updates a single
+# tracking issue when human review is required. Uses only GitHub's own
+# "actions/*" actions plus the `gh` CLI that ships on GitHub-hosted runners
+# — no third-party actions. See FRESHNESS.md for the policy this enforces
+# and sources.json / sources.schema.json for the data it checks.
+#
+# This workflow NEVER runs with --write-manifest: it only ever reads and
+# reports. Updating manifest.json's knowledge.* placeholder fields is a
+# deliberate, human-run, local action (`npm run freshness:update-manifest`)
+# followed by a reviewed commit — see the "no-autonomous-update rule" in
+# FRESHNESS.md. This workflow also never commits, pushes, or modifies any
+# file in the repository.
+
+"on":
+  schedule:
+    # Every Monday at 06:17 UTC. Deliberately off-the-hour to avoid the
+    # top-of-hour scheduling stampede on GitHub's infrastructure.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Perform network checks: headers-only reachability/drift, plus any bounded versionProbe (unchecked = offline schema/date/probe-config checks only)'
+        type: boolean
+        default: true
+
+# Least-privilege token scope for the whole workflow: read the repo,
+# read/write issues (to open/comment/close the single tracking issue and,
+# if needed, create its label). No other permission is granted.
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: knowledge-freshness-check
+  cancel-in-progress: false
+
+env:
+  FRESHNESS_LABEL: freshness-review
+  FRESHNESS_TITLE: 'Knowledge freshness review required'
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run freshness check
+        id: check
+        shell: bash
+        run: |
+          set +e
+          NETWORK_FLAG="--network"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.network }}" = "false" ]; then
+            NETWORK_FLAG=""
+          fi
+          node scripts/check-freshness.mjs $NETWORK_FLAG --format=markdown > freshness-report.md
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Upload freshness report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freshness-report
+          path: freshness-report.md
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Ensure tracking label exists
+        if: steps.check.outputs.exit_code != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "$FRESHNESS_LABEL" \
+            --repo "$GITHUB_REPOSITORY" \
+            --color FBCA04 \
+            --description "Automated: a knowledge source in sources.json needs human review" \
+            || true
+
+      - name: Open or update freshness issue
+        if: steps.check.outputs.exit_code != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          EXISTING="$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$FRESHNESS_LABEL" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body-file freshness-report.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$FRESHNESS_TITLE" \
+              --label "$FRESHNESS_LABEL" \
+              --body-file freshness-report.md
+          fi
+
+      - name: Close resolved freshness issue
+        if: steps.check.outputs.exit_code == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          EXISTING="$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$FRESHNESS_LABEL" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --body "Freshness check is clean as of $(date -u +%Y-%m-%dT%H:%M:%SZ). Closing this issue automatically."
+            gh issue close "$EXISTING" --repo "$GITHUB_REPOSITORY"
+          fi
+
+      - name: Fail the job on a blocking result
+        if: steps.check.outputs.exit_code == '1'
+        shell: bash
+        run: |
+          echo "::error::Freshness check found invalid entries, an invalid versionProbe configuration, and/or overdue sources. See the freshness-report artifact and the tracking issue."
+          exit 1

@@ -1,0 +1,123 @@
+{
+  "name": "josh-stewart-cloud-context-pack",
+  "version": "0.3.0-pre.1",
+  "description": "Joshua Stewart's tool-portable, versioned context pack of AI-agent skills for Microsoft Azure full-stack development. The packaging is portable across agent tools; the guidance is deliberately Azure-specific. Pre-release: nine skills authored, partial non-claim development pilots, and no formal behavioural benchmark result.",
+  "author": "Joshua Stewart",
+  "repository": "https://github.com/joshualukestewart/josh-stewart-cloud-context-pack",
+  "status": "pre-release",
+  "license": {
+    "code": "MIT",
+    "codeFile": "LICENSE",
+    "content": "MIT",
+    "contentNote": "One licence covers everything original in this repository: MIT applies equally to code and to documentation/prose, and LICENSE is the only licence file the pack ships. There is no separate content licence. No third-party material is included today; if any is ever added deliberately, it must carry its own work-specific licence and attribution recorded in NOTICE and sources.json before inclusion, and only that work is covered by those terms."
+  },
+  "entryPoint": "AGENTS.md",
+  "skills": {
+    "planned": 9,
+    "authored": 9,
+    "location": ".agents/skills",
+    "mirrors": [
+      ".github/skills",
+      ".claude/skills"
+    ]
+  },
+  "adapters": [
+    {
+      "target": ".github/copilot-instructions.md",
+      "type": "generated",
+      "source": "AGENTS.md",
+      "generated": true
+    },
+    {
+      "target": "CLAUDE.md",
+      "type": "generated",
+      "source": "AGENTS.md",
+      "generated": true
+    },
+    {
+      "target": "GEMINI.md",
+      "type": "generated",
+      "source": "AGENTS.md",
+      "generated": true
+    }
+  ],
+  "mcp": {
+    "configs": [
+      ".mcp.json",
+      ".vscode/mcp.json"
+    ],
+    "serversDeclared": 1,
+    "servers": [
+      {
+        "id": "microsoft-learn",
+        "url": "https://learn.microsoft.com/api/mcp",
+        "transport": "http",
+        "declaredIn": [
+          ".mcp.json",
+          ".vscode/mcp.json"
+        ],
+        "note": "Endpoint declaration only. Tool names, schemas, prompts and resources are discovered from the server at runtime by each MCP client and are deliberately never pinned in this repository — pinning them would go stale silently. Each config file uses its own tool's current wrapper key ('mcpServers' for .mcp.json, 'servers' for .vscode/mcp.json); both are re-verified by scripts/validate-pack.mjs."
+      }
+    ]
+  },
+  "knowledge": {
+    "registry": "sources.json",
+    "schema": "sources.schema.json",
+    "checker": "scripts/check-freshness.mjs",
+    "knowledgeReviewedAt": null,
+    "reviewDueAt": null,
+    "sourceRegistrySha256": null,
+    "contract": "These three fields are placeholders, not live data. They are only ever written by a human deliberately running 'node scripts/check-freshness.mjs --write-manifest' locally after reviewing its report, then committing the result — the scheduled freshness workflow runs in check-only mode and never invokes --write-manifest (see FRESHNESS.md, 'no-autonomous-update rule'). Meaning once populated: knowledgeReviewedAt = UTC timestamp of that last manual write; reviewDueAt = the earliest lastReviewed+reviewAfterDays deadline across sources.json at that time; sourceRegistrySha256 = SHA-256 hex digest of sources.json's exact bytes at that time, so any later edit to sources.json is detectably unreviewed until these fields are refreshed again."
+  },
+  "docs": {
+    "compatibility": "COMPATIBILITY.md",
+    "freshness": "FRESHNESS.md",
+    "changelog": "CHANGELOG.md",
+    "notice": "NOTICE"
+  },
+  "tooling": {
+    "runtime": "Node >=20, built-in modules only (no dependencies)",
+    "generate": "scripts/generate-adapters.mjs",
+    "validate": "scripts/validate-pack.mjs",
+    "install": "scripts/install.mjs",
+    "release": "scripts/build-release.mjs",
+    "freshness": "scripts/check-freshness.mjs",
+    "versionProbe": "scripts/lib/version-probe.mjs — bounded, JSON-only latest-version probes (npm-latest, nuget-index, dotnet-release-index, github-latest) used by check-freshness.mjs --network. Probes report version drift for human review; they never rewrite sources.json, testedVersion or any content, never store response bodies, and fail closed on an oversized, slow, non-JSON or malformed response.",
+    "tests": "scripts/tests (node --test, offline)",
+    "workflows": [
+      ".github/workflows/validate.yml",
+      ".github/workflows/release.yml",
+      ".github/workflows/freshness.yml"
+    ]
+  },
+  "release": {
+    "packId": "cloud-full-stack",
+    "artifact": "dist/<name>-<version>.zip",
+    "blobPrefix": "releases/<version>/",
+    "pointer": "dist/current.json",
+    "formallyTestedWith": [],
+    "adapterSupport": [
+      "GitHub Copilot",
+      "Claude Code",
+      "OpenAI Codex",
+      "Gemini CLI"
+    ],
+    "contract": "packId is the identifier the delivery site validates and must not change. Both claim lists accept ONLY the delivery site's canonical tool names - \"GitHub Copilot\", \"Claude Code\", \"OpenAI Codex\", \"Gemini CLI\" - with no duplicates and no name appearing in both lists: a tool is either benchmarked or format-only, never both. Deliberately no file paths appear here; which files each tool reads is documented in README.md and COMPATIBILITY.md, where it can carry its own dates and caveats. formallyTestedWith is EMPTY and must stay empty until a real benchmark has been run and recorded in evals/RESULTS.md - it is a behavioural claim. adapterSupport names the four tools this pack ships a format adapter for; it is a FORMAT claim only, behaviourally unverified, and must be labelled that way wherever it is displayed. scripts/build-release.mjs refuses to build a publishable release while formallyTestedWith is empty, so a pre-release cannot be published by accident. Everything else in current.json (version, blobName, sizeBytes, sha256, publishedAt, repositoryUrl, knowledgeReviewedAt, reviewDueAt, sourceRegistrySha256) is derived at build time from VERSION, the archive bytes and this manifest's knowledge block."
+  },
+  "directories": {
+    "references": "references",
+    "examples": "examples",
+    "evals": "evals",
+    "scripts": "scripts"
+  },
+  "notes": [
+    "Nine skills are authored under .agents/skills/ and mirrored to .github/skills/ and .claude/skills/ by scripts/generate-adapters.mjs.",
+    "No formal behavioural claim is made for any tool. Partial development pilots are excluded from release evidence; evals/RESULTS.md remains NOT RUN for a protocol-complete benchmark.",
+    "Format compatibility per tool is tracked in COMPATIBILITY.md with the date each vendor document was read; behavioural compatibility is \"benchmark pending\" everywhere.",
+    "No Microsoft Learn prose or Microsoft logos are copied into this repository.",
+    "This repository's own name and package identifiers intentionally omit 'Microsoft'/'Azure' per Microsoft's trademark guidance for third-party product names; 'Azure' appears only in subordinate, descriptive wording (see NOTICE).",
+    "sources.json / sources.schema.json / scripts/check-freshness.mjs implement this pack's knowledge-supply-chain freshness process; see FRESHNESS.md.",
+    "scripts/ is dependency-free Node 20 tooling: generate-adapters.mjs produces the adapters and skill mirrors, validate-pack.mjs gates structure/claims/hygiene, install.mjs installs into a target project, build-release.mjs builds dist/ and current.json. See scripts/README.md.",
+    "knowledge.* is deliberately unset: the live freshness check currently reports version drift and probe errors, so no review has been recorded and a final release stays blocked."
+  ]
+}

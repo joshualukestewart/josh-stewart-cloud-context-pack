@@ -1,0 +1,44 @@
+NOTICE
+
+Joshua Stewart Cloud Context Pack
+Copyright (c) 2026 Joshua Stewart
+
+## Licensing
+
+All original code and documentation/prose in this repository is licensed
+under the **MIT License**. See `LICENSE` for the full text.
+
+If a specific file states a different license in its own header, that
+file-level statement takes precedence over this NOTICE.
+
+## Trademark disclaimer
+
+"Microsoft", "Azure", "Bicep", "GitHub", "GitHub Copilot", and "Visual Studio
+Code" are trademarks of the Microsoft group of companies. This project is an
+independent, personal effort by Joshua
+Stewart and is **not affiliated with, sponsored by, or endorsed by
+Microsoft Corporation**. This repository's own name and package identifiers
+deliberately do not include "Microsoft," "Azure," or any other Microsoft
+mark, consistent with Microsoft's trademark guidance for third-party
+product/repository names. Where "Azure" appears in this repository, it is
+always subordinate, descriptive, and truthful (e.g. "for Microsoft Azure
+full-stack development," or naming an Azure service a compatibility row
+refers to) — never as this project's own name, and never implying
+partnership, certification, or official status. No Microsoft logos, icons,
+or other brand assets are used anywhere in this repository.
+
+## Content originality
+
+All prose, guidance, and documentation in this repository is intended to be
+original, independently written material. No text is copied from Microsoft
+Learn, Microsoft product documentation, or any other Microsoft-owned or
+third-party copyrighted source. Anyone adding content is expected to write
+it themselves and verify facts against primary sources rather than
+reproducing source text — see `AGENTS.md` and `FRESHNESS.md`.
+
+## No warranty
+
+This content is provided "as is" without warranty of any kind, express or
+implied. See `LICENSE` for the applicable disclaimers. Compatibility and freshness claims are, as of this
+scaffold stage, unverified except where `FRESHNESS.md` / `sources.json`
+record an actual check — see `COMPATIBILITY.md` and `FRESHNESS.md`.

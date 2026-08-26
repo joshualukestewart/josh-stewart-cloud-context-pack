@@ -1,0 +1,28 @@
+# Dependencies (scripts/ is intended to stay dependency-free, but ignore
+# node_modules defensively in case a future script needs a dev-only tool)
+node_modules/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Editor-local settings (keep .vscode/mcp.json tracked; ignore personal overrides)
+.vscode/*
+!.vscode/mcp.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# scripts/check-freshness.mjs runtime artifacts: a local cache of HTTP
+# metadata (ETag/Last-Modified only, never page bodies) used to detect
+# drift between runs, plus any ad hoc report exports. Never commit these;
+# they are machine-local operational state, not reviewed content.
+.freshness-cache.json
+freshness-report.*
+
+# scripts/build-release.mjs output: the release archive, its checksums and
+# the current.json release pointer. Build artifacts are reproducible from a
+# clean checkout, so they are never committed.
+dist/

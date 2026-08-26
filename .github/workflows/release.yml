@@ -1,0 +1,282 @@
+name: Release
+
+# Publishes a release of this pack:
+#   1. build   - deterministic archive + current.json via scripts/build-release.mjs
+#   2. github  - attaches the artefacts to a GitHub release
+#   3. publish - uploads to Azure Blob Storage using GitHub OIDC federation
+#
+# Publication order is deliberate and must not be reordered: the immutable,
+# version-scoped archive is uploaded and verified FIRST, and current.json -
+# the pointer the delivery site reads - is written LAST. A reader therefore
+# never sees a pointer to a blob that does not exist yet.
+#
+# Azure authentication uses OIDC federation and stores no Azure credential or
+# client secret. Per azure/login guidance, the client/tenant/subscription
+# identifiers are supplied through environment secrets so untrusted event data
+# can never influence the selected Azure identity.
+#
+# Required environment secrets:
+#   AZURE_CLIENT_ID        app registration federated to this repo/environment
+#   AZURE_TENANT_ID        directory (tenant) id
+#   AZURE_SUBSCRIPTION_ID  subscription containing the storage account
+# Required environment variables:
+#   PACK_STORAGE_ACCOUNT   storage account name that serves the pack
+#   PACK_STORAGE_CONTAINER container name (the delivery site defaults to
+#                          "context-packs")
+# The federated identity needs the Storage Blob Data Contributor role on the
+# container - nothing broader, and no account keys are ever used.
+
+"on":
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish. Must match VERSION exactly.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One release at a time, and never cancel a run mid-publication: a cancelled
+# run between the archive upload and the current.json write would leave the
+# pointer stale rather than corrupt, but a cancelled run cannot be resumed.
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build release artefacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      zip-name: ${{ steps.build.outputs.zip_name }}
+      blob-name: ${{ steps.build.outputs.blob_name }}
+      sha256: ${{ steps.build.outputs.sha256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Resolve and verify version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REQUESTED="${{ inputs.version }}"
+          else
+            REQUESTED="${GITHUB_REF_NAME#v}"
+          fi
+          if [ "$FILE_VERSION" != "$REQUESTED" ]; then
+            echo "::error::Requested version '$REQUESTED' does not match VERSION '$FILE_VERSION'."
+            exit 1
+          fi
+          echo "version=$FILE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check generated adapters and skill mirrors
+        run: node scripts/generate-adapters.mjs --check
+
+      - name: Run tooling tests
+        run: npm test
+
+      - name: Validate under release gates
+        run: node scripts/validate-pack.mjs --release
+
+      - name: Build release
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESULT_PATH="$RUNNER_TEMP/context-pack-build-result.json"
+          node scripts/build-release.mjs --json > "$RESULT_PATH"
+          RESULT_PATH="$RESULT_PATH" node -e '
+            const result = require(process.env.RESULT_PATH);
+            if (!result.ok) { console.error("build failed"); process.exit(1); }
+            const out = process.env.GITHUB_OUTPUT;
+            require("fs").appendFileSync(out,
+              `zip_name=${result.zipName}\n` +
+              `blob_name=${result.current.blobName}\n` +
+              `sha256=${result.current.sha256}\n`);
+          '
+
+      - name: Verify checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum --check SHA256SUMS
+
+      - name: Upload release artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  github-release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artefacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Create or update the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          SHA256: ${{ needs.build.outputs.sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          NOTES="$(printf 'Archive SHA-256: `%s`\n\nSee CHANGELOG.md for what changed. Verify the download against dist/SHA256SUMS before use.' "$SHA256")"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --notes "$NOTES" \
+              --verify-tag
+          fi
+
+  publish:
+    name: Publish to Azure Blob Storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build, github-release]
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download release artefacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Azure login (OIDC federation, no stored secret)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Refuse to overwrite an existing version
+        env:
+          ACCOUNT: ${{ vars.PACK_STORAGE_ACCOUNT }}
+          CONTAINER: ${{ vars.PACK_STORAGE_CONTAINER }}
+          BLOB: ${{ needs.build.outputs.blob-name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXISTS="$(az storage blob exists \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name "$BLOB" \
+            --auth-mode login \
+            --query exists -o tsv)"
+          if [ "${EXISTS,,}" = "true" ]; then
+            echo "::error::$BLOB already exists. Published versions are immutable; bump VERSION instead."
+            exit 1
+          fi
+
+      - name: Upload the versioned archive
+        env:
+          ACCOUNT: ${{ vars.PACK_STORAGE_ACCOUNT }}
+          CONTAINER: ${{ vars.PACK_STORAGE_CONTAINER }}
+          BLOB: ${{ needs.build.outputs.blob-name }}
+          ZIP: ${{ needs.build.outputs.zip-name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --overwrite false makes this a create-if-absent upload: the service
+          # rejects the request when the blob already exists, so a published
+          # version can never be silently replaced.
+          az storage blob upload \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name "$BLOB" \
+            --file "dist/$ZIP" \
+            --content-type application/zip \
+            --overwrite false \
+            --auth-mode login \
+            --only-show-errors
+
+      - name: Verify the uploaded archive
+        env:
+          ACCOUNT: ${{ vars.PACK_STORAGE_ACCOUNT }}
+          CONTAINER: ${{ vars.PACK_STORAGE_CONTAINER }}
+          BLOB: ${{ needs.build.outputs.blob-name }}
+          EXPECTED: ${{ needs.build.outputs.sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          az storage blob download \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name "$BLOB" \
+            --file downloaded.zip \
+            --auth-mode login \
+            --only-show-errors
+          ACTUAL="$(sha256sum downloaded.zip | cut -d' ' -f1)"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Uploaded archive hash $ACTUAL does not match the built hash $EXPECTED."
+            exit 1
+          fi
+
+      # current.json is written LAST and is the only mutable blob: until this
+      # step succeeds, the delivery site keeps serving the previous release.
+      - name: Publish the release pointer (current.json)
+        env:
+          ACCOUNT: ${{ vars.PACK_STORAGE_ACCOUNT }}
+          CONTAINER: ${{ vars.PACK_STORAGE_CONTAINER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          az storage blob upload \
+            --account-name "$ACCOUNT" \
+            --container-name "$CONTAINER" \
+            --name current.json \
+            --file dist/current.json \
+            --content-type application/json \
+            --content-cache-control 'no-cache' \
+            --overwrite true \
+            --auth-mode login \
+            --only-show-errors
+
+      - name: Summarise
+        env:
+          BLOB: ${{ needs.build.outputs.blob-name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        shell: bash
+        run: |
+          {
+            echo "### Published context pack \`$VERSION\`"
+            echo
+            echo "- Archive: \`$BLOB\` (immutable)"
+            echo "- Pointer: \`current.json\` (updated last)"
+          } >> "$GITHUB_STEP_SUMMARY"

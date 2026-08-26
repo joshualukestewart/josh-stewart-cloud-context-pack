@@ -1,0 +1,11 @@
+> web@0.1.0 build
+> tsc && vite build
+
+src/report/ReportView.tsx:2:29 - error TS2307: Cannot find module './charts/BarChart' or its corresponding type declarations.
+
+2 import { BarChart } from './charts/BarChart';
+                            ~~~~~~~~~~~~~~~~~~~
+
+Found 1 error in src/report/ReportView.tsx:2
+
+ERROR: build failed with 1 error

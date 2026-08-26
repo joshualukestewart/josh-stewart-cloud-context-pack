@@ -1,0 +1,267 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/joshualukestewart/josh-stewart-cloud-context-pack/main/evals/benchmark.schema.json",
+  "title": "Joshua Stewart Cloud Context Pack - Aggregate Benchmark Schema",
+  "description": "Schema for the benchmark.json produced by evals/run.mjs --aggregate, which rolls per-run grades up into a per-iteration scorecard and evaluates the launch gates. Validated offline by evals/run.mjs using the same hand-written JSON Schema subset described in evals.schema.json. A benchmark document is a record of what was measured, including everything that was NOT measured: any figure that could not be computed from complete evidence is null and its gate verdict is 'insufficient-data', never 'pass'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "benchmarkSchemaVersion",
+    "generatedAt",
+    "generator",
+    "iterations",
+    "status",
+    "suiteVersion",
+    "packState",
+    "toolsObserved",
+    "runsPerCasePerArm",
+    "cases",
+    "aggregate",
+    "launchGates",
+    "launchReady",
+    "limitations"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "benchmarkSchemaVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The exact command that produced this file."
+    },
+    "iterations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "integer", "minimum": 1 },
+      "description": "The iteration numbers pooled into this benchmark. One iteration is one complete pass of one tool over the suite, so two runs per tool per case means two iterations for that tool."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["not-run", "partial", "complete"],
+      "description": "'not-run': no graded runs exist. 'partial': at least one case is missing a graded run in at least one arm, so no headline number may be published. 'complete': every case has the required number of graded runs in both arms."
+    },
+    "suiteVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "packState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packVersion", "skillsAuthored", "warning"],
+      "properties": {
+        "packVersion": { "type": "string", "minLength": 1 },
+        "packCommit": { "type": ["string", "null"] },
+        "skillsAuthored": { "type": "integer", "minimum": 0 },
+        "warning": {
+          "type": ["string", "null"],
+          "description": "Set when the pack state makes the comparison meaningless, e.g. zero authored skills in the with_pack arm."
+        }
+      }
+    },
+    "toolsObserved": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "versions", "models", "runs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "versions": { "type": "array", "minItems": 0, "items": { "type": "string" } },
+          "models": { "type": "array", "minItems": 0, "items": { "type": "string" } },
+          "runs": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "runsPerCasePerArm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "observedMin", "observedMax"],
+      "properties": {
+        "required": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Protocol minimum (2). A case with fewer graded runs in either arm cannot contribute to a gate."
+        },
+        "observedMin": { "type": ["integer", "null"], "minimum": 0 },
+        "observedMax": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evalId", "riskLevel", "nonTrigger", "liveRetrievalRequired", "arms", "comparison"],
+        "properties": {
+          "evalId": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "nonTrigger": { "type": "boolean" },
+          "liveRetrievalRequired": { "type": "boolean" },
+          "arms": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["with_pack", "without_pack"],
+            "properties": {
+              "with_pack": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["runsGraded", "passes", "passRate", "evidenceComplete"],
+                "properties": {
+                  "runsGraded": { "type": "integer", "minimum": 0 },
+                  "passes": { "type": "integer", "minimum": 0 },
+                  "passRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                  "evidenceComplete": { "type": "boolean" },
+                  "meanWallClockSeconds": { "type": ["number", "null"], "minimum": 0 },
+                  "meanTotalTokens": { "type": ["number", "null"], "minimum": 0 },
+                  "tokenSource": {
+                    "type": ["string", "null"],
+                    "enum": ["tool-reported", "estimated", "unavailable", "mixed", null]
+                  },
+                  "meanToolCalls": { "type": ["number", "null"], "minimum": 0 },
+                  "blockingAssertionFailures": {
+                    "type": "array",
+                    "minItems": 0,
+                    "items": { "type": "string" }
+                  }
+                }
+              },
+              "without_pack": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["runsGraded", "passes", "passRate", "evidenceComplete"],
+                "properties": {
+                  "runsGraded": { "type": "integer", "minimum": 0 },
+                  "passes": { "type": "integer", "minimum": 0 },
+                  "passRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                  "evidenceComplete": { "type": "boolean" },
+                  "meanWallClockSeconds": { "type": ["number", "null"], "minimum": 0 },
+                  "meanTotalTokens": { "type": ["number", "null"], "minimum": 0 },
+                  "tokenSource": {
+                    "type": ["string", "null"],
+                    "enum": ["tool-reported", "estimated", "unavailable", "mixed", null]
+                  },
+                  "meanToolCalls": { "type": ["number", "null"], "minimum": 0 },
+                  "blockingAssertionFailures": {
+                    "type": "array",
+                    "minItems": 0,
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "comparison": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "liftPercentagePoints", "tokenRatio", "correctnessRegressions", "securityRegressions"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["comparable", "insufficient-data"],
+                "description": "'comparable' only when both arms have at least runsPerCasePerArm.required graded runs with complete evidence."
+              },
+              "liftPercentagePoints": { "type": ["number", "null"] },
+              "tokenRatio": {
+                "type": ["number", "null"],
+                "minimum": 0,
+                "description": "with_pack mean total tokens divided by without_pack mean total tokens. Null unless both arms report tool-reported token counts."
+              },
+              "correctnessRegressions": {
+                "type": "array",
+                "minItems": 0,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["assertionId", "detail"],
+                  "properties": {
+                    "assertionId": { "type": "string" },
+                    "detail": { "type": "string", "minLength": 5 }
+                  }
+                }
+              },
+              "securityRegressions": {
+                "type": "array",
+                "minItems": 0,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["assertionId", "detail"],
+                  "properties": {
+                    "assertionId": { "type": "string" },
+                    "detail": { "type": "string", "minLength": 5 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "casesTotal",
+        "casesComparable",
+        "withPackPassRate",
+        "withoutPackPassRate",
+        "liftPercentagePoints",
+        "tokenRatio",
+        "liveRetrievalComplianceRate",
+        "nonTriggerComplianceRate",
+        "correctnessRegressionCount",
+        "securityRegressionCount"
+      ],
+      "properties": {
+        "casesTotal": { "type": "integer", "minimum": 0 },
+        "casesComparable": { "type": "integer", "minimum": 0 },
+        "withPackPassRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "withoutPackPassRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "liftPercentagePoints": { "type": ["number", "null"] },
+        "tokenRatio": { "type": ["number", "null"], "minimum": 0 },
+        "liveRetrievalComplianceRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "nonTriggerComplianceRate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "correctnessRegressionCount": { "type": ["integer", "null"], "minimum": 0 },
+        "securityRegressionCount": { "type": ["integer", "null"], "minimum": 0 },
+        "meanWallClockSecondsWithPack": { "type": ["number", "null"], "minimum": 0 },
+        "meanWallClockSecondsWithoutPack": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "launchGates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement", "threshold", "observed", "verdict", "blocking"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "statement": { "type": "string", "minLength": 15 },
+          "threshold": { "type": "string", "minLength": 1 },
+          "observed": {
+            "type": ["number", "string", "null"],
+            "description": "The measured value, or null when it could not be computed from complete evidence."
+          },
+          "verdict": {
+            "type": "string",
+            "enum": ["pass", "fail", "insufficient-data"],
+            "description": "'insufficient-data' is never treated as a pass."
+          },
+          "blocking": { "type": "boolean" },
+          "detail": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "launchReady": {
+      "type": "boolean",
+      "description": "True only when status is 'complete' and every blocking gate verdict is 'pass'. Any 'insufficient-data' forces false."
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 15 },
+      "description": "Everything a reader must know before quoting a number from this file."
+    },
+    "notes": { "type": ["string", "null"] }
+  }
+}

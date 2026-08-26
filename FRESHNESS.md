@@ -302,7 +302,7 @@ self-checked" as approval.
 | `.github/copilot-instructions.md`, `CLAUDE.md`, `GEMINI.md` | Generated | Never | Produced by `npm run generate` from `AGENTS.md`; each carries a do-not-edit header naming its source. | Present and synchronized; behaviour unverified |
 | `.github/skills/`, `.claude/skills/` | Generated | Never | Mirrors of `.agents/skills/`: 9 `SKILL.md` + 4 skill `references/` files + README each. | Present and synchronized; behaviour unverified |
 | `.mcp.json`, `.vscode/mcp.json` | 2026-08-26 | Never | Each declares one server, `microsoft-learn`, `type: http`, at `https://learn.microsoft.com/api/mcp`, using the wrapper key its own tool documents. Backing sources registered and reachable. | **Declared, never connected to** |
-| `README.md`, `manifest.json`, `VERSION`, `CHANGELOG.md` | 2026-08-26 | Never | Synchronized as `0.3.0-pre.2`; explicitly records nine skills, the Copilot CLI release benchmark gate, NOT-RUN evaluations and publication blockers. | Pre-release metadata present; final release blocked |
+| `README.md`, `manifest.json`, `VERSION`, `CHANGELOG.md` | 2026-08-26 | Never | Synchronized as `0.3.0-pre.3`; explicitly records nine skills, the Copilot CLI release benchmark gate, NOT-RUN evaluations and publication blockers. | Pre-release metadata present; final release blocked |
 
 ### Known gaps as of 2026-08-26
 
@@ -317,7 +317,7 @@ self-checked" as approval.
 4. The MCP configs now declare the Microsoft Learn endpoint, but **no MCP
    client has been observed connecting to it** from this repository and no
    tool call has been made through it. Declared is not verified.
-5. Pre-release metadata exists at `0.3.0-pre.2`; a final release remains
+5. Pre-release metadata exists at `0.3.0-pre.3`; a final release remains
    blocked on behavioural benchmark evidence and a completed knowledge review.
 6. No Azure deployment, `what-if`, or live-service check has been performed.
 7. Four of the six version probes (npm ×3, NuGet ×1) could not complete from

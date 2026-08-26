@@ -1,6 +1,6 @@
 {
   "name": "josh-stewart-cloud-context-pack",
-  "version": "0.3.0-pre.2",
+  "version": "0.3.0-pre.3",
   "description": "Joshua Stewart's tool-portable, versioned context pack of AI-agent skills for Microsoft Azure full-stack development. The packaging is portable across agent tools; the guidance is deliberately Azure-specific. Pre-release: nine skills authored, partial non-claim development pilots, and no formal behavioural benchmark result.",
   "author": "Joshua Stewart",
   "repository": "https://github.com/joshualukestewart/josh-stewart-cloud-context-pack",

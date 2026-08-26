@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.3.0-pre.3] - 2026-08-26
+
+### Changed
+
+- Required least-privilege explanations to distinguish workload operations
+  from extra role permissions and compare the closest narrower and broader
+  roles.
+- Prohibited "exactly" claims unless the retrieved permission set equals the
+  workload's required set.
+- Excluded machine-local `evals/runs/` workspaces and transcripts from source
+  validation and release archives, with regression tests for both paths.
+
+This change responds to a preliminary n=1 calibration failure. No formal
+benchmark result exists and this pre-release makes no behavioural claim.
+
 ## [0.3.0-pre.2] - 2026-08-26
 
 ### Changed

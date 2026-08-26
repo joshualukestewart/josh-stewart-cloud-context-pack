@@ -52,6 +52,7 @@ import {
   isMain,
   isScaffold,
   isScratchDir,
+  isToolingScratchPath,
   listFiles,
   readJson,
   readPackMetadata,
@@ -243,7 +244,7 @@ class Report {
 // Repository scan helpers
 // ---------------------------------------------------------------------
 
-function repoFiles(repoRoot) {
+export function repoFiles(repoRoot) {
   const out = [];
   const unreadable = [];
   const skipped = [];
@@ -265,7 +266,8 @@ function repoFiles(repoRoot) {
       if (entry.isDirectory()) {
         // Tooling scratch (eval harness workspaces, editor state) is not
         // pack content: it is neither validated nor shipped.
-        if (isScratchDir(entry.name)) {
+        const rel = toPosix(path.relative(repoRoot, abs));
+        if (isScratchDir(entry.name) || isToolingScratchPath(rel)) {
           skipped.push(toPosix(path.relative(repoRoot, abs)));
           continue;
         }

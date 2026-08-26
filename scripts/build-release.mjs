@@ -52,6 +52,7 @@ import {
   isFile,
   isMain,
   isScratchDir,
+  isToolingScratchPath,
   listFiles,
   readJson,
   readPackMetadata,
@@ -144,6 +145,7 @@ export function collectFiles(repoRoot) {
       const segments = rel.split('/');
       const base = segments[segments.length - 1];
       if (ALWAYS_EXCLUDED.some((excluded) => rel === excluded || rel.startsWith(`${excluded}/`))) return false;
+      if (isToolingScratchPath(rel)) return false;
       // Defence in depth: listFiles already refuses to descend into tooling
       // scratch, so a scratch segment here means something changed upstream.
       if (segments.slice(0, -1).some((segment) => isScratchDir(segment))) return false;

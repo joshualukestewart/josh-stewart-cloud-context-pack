@@ -115,6 +115,9 @@ export const ALWAYS_EXCLUDED = [
   'Thumbs.db',
 ];
 
+/** Repo-relative generated directories that tooling must never scan or ship. */
+export const TOOLING_SCRATCH_PATHS = ['evals/runs'];
+
 /**
  * Dot-directories that hold real pack content. Any *other* dot-directory
  * is treated as tooling scratch (harness workspaces, editor state, local
@@ -127,6 +130,14 @@ export const CONTENT_DOT_DIRS = ['.agents', '.claude', '.github', '.vscode'];
 /** True when a directory name is tooling scratch rather than pack content. */
 export function isScratchDir(name) {
   return name.startsWith('.') && !CONTENT_DOT_DIRS.includes(name);
+}
+
+/** True when a repo-relative path is generated tooling state. */
+export function isToolingScratchPath(relPath) {
+  const normalized = toPosix(relPath).replace(/^\.?\//, '').replace(/\/+$/, '');
+  return TOOLING_SCRATCH_PATHS.some(
+    (scratch) => normalized === scratch || normalized.startsWith(`${scratch}/`),
+  );
 }
 
 // ---------------------------------------------------------------------

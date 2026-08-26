@@ -1,6 +1,6 @@
 # Joshua Stewart Cloud Context Pack
 
-> **Status: pre-release (`0.3.0-pre.2`).** Nine skills are authored, an
+> **Status: pre-release (`0.3.0-pre.3`).** Nine skills are authored, an
 > evaluation harness exists, and the tooling that generates, validates and
 > packages the pack is in place. Small development pilots have exercised three
 > cases, but they are incomplete, n=1, and failed release gates. **No formal

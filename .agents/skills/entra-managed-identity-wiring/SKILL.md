@@ -62,7 +62,12 @@ semantics live rather than assuming.)
    Use one authoritative verification (prefer a direct
    `az role definition list --name <role>` query when available); once the
    required data actions are established, stop rather than collecting
-   redundant pages or role catalogues.
+   redundant pages or role catalogues. In the final answer, keep four facts
+   separate: the workload's required operations; the selected role's relevant
+   permissions (including extras); the closest narrower role and the required
+   operation it cannot perform; and the next broader role and the permission
+   that makes it unnecessary. Never say a role's permissions match "exactly"
+   unless the retrieved permission set actually equals the required set.
 4. **Create the corresponding principal in the data store.** For Azure SQL,
    an Azure role assignment alone is not enough — the identity also needs a
    database user and role membership. Grant the minimum, and never `db_owner`

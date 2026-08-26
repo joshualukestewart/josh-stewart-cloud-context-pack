@@ -4,7 +4,7 @@
   "status": "not-run",
   "notes": "This suite has never been executed. It defines how a baseline-versus-pack comparison would be run; it contains no results and no claims. Every case is written so that a wrong answer is visibly wrong, not so that the pack looks good. Prompts are original text written for this repository; no vendor documentation prose is reproduced anywhere in this suite or its fixtures. The skill slugs below were read from .agents/skills/ on 2026-08-26; evals/run.mjs re-reads them at prepare time and warns if they have moved.",
   "packUnderTest": {
-    "version": "0.3.0-pre.2",
+    "version": "0.3.0-pre.3",
     "skillsAuthored": 9,
     "caveat": "The nine skills exist and are mapped to cases below, but no case has ever been run, so this repository holds no evidence that any of them helps, is neutral, or hurts. The mapping in relevantSkills is a statement of intent about which skill should fire, not an observation that it does; whether a skill actually activates is measured per run from the transcript, and the non-trigger case exists precisely to catch a pack that fires when it should not."
   },

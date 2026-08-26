@@ -12,7 +12,7 @@ Verify in CI with: npm run check
 
 The import above loads the canonical operating contract. Follow it in full.
 
-Pack version `0.3.0-pre.2` (status: `pre-release`), 9 canonical skills.
+Pack version `0.3.0-pre.3` (status: `pre-release`), 9 canonical skills.
 
 Load only the skill matching the task from `.claude/skills/`; native skill
 discovery carries each skill description on demand, so it is not duplicated here.

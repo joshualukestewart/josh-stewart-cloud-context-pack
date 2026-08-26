@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.3.0-pre.2] - 2026-08-26
+
+### Changed
+
+- Designated GitHub Copilot CLI as the single protocol-complete benchmark
+  required for a behavioural release claim.
+- Kept Claude Code, GitHub Copilot agent mode and other adapters as optional
+  future comparison targets rather than mandatory release dependencies.
+- Made the release benchmark designation schema-validated and fail-closed.
+
+This remains a pre-release with **no formal benchmark result** and makes no
+behavioural claim.
+
 ## [0.3.0-pre.1] - 2026-08-26
 
 First pre-release. Nine skills are authored and the supporting tooling is in

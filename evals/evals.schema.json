@@ -83,6 +83,7 @@
           "id",
           "displayName",
           "invocation",
+          "releaseGate",
           "transcriptCapture",
           "tokenReporting",
           "toolCallReporting"
@@ -97,6 +98,10 @@
             "type": "string",
             "const": "manual-only",
             "description": "Fixed value. This suite never automates a proprietary agent CLI; the operator drives the tool by hand."
+          },
+          "releaseGate": {
+            "type": "boolean",
+            "description": "Whether a protocol-complete benchmark for this tool is required before the pack may make a behavioural release claim. Exactly one tool must be designated."
           },
           "transcriptCapture": {
             "type": "string",

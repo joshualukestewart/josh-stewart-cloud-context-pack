@@ -95,10 +95,10 @@ is unresolved.
 | Mean wall clock (s) | — | — | — | — |
 | Mean tool calls | — | — | — | — |
 
-Token and tool-call reporting is recorded as `unverified` for both target
-tools in `evals.json`: this repository has not confirmed what either
-exposes. If a run records `"unavailable"`, that run is excluded from the
-token gate rather than estimated into it.
+GitHub Copilot CLI is the one release-gate tool and its token/tool-call
+reporting was observed in a non-claim pilot. Other listed tools remain
+optional and may be `unverified`. If a run records `"unavailable"`, that run is
+excluded from the token gate rather than estimated into it.
 
 ## Limitations that will still apply when this file has numbers
 

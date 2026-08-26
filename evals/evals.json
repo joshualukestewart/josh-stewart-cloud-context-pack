@@ -1,10 +1,10 @@
 {
   "$schema": "./evals.schema.json",
-  "suiteVersion": "0.1.1",
+  "suiteVersion": "0.2.0",
   "status": "not-run",
   "notes": "This suite has never been executed. It defines how a baseline-versus-pack comparison would be run; it contains no results and no claims. Every case is written so that a wrong answer is visibly wrong, not so that the pack looks good. Prompts are original text written for this repository; no vendor documentation prose is reproduced anywhere in this suite or its fixtures. The skill slugs below were read from .agents/skills/ on 2026-08-26; evals/run.mjs re-reads them at prepare time and warns if they have moved.",
   "packUnderTest": {
-    "version": "0.3.0-pre.1",
+    "version": "0.3.0-pre.2",
     "skillsAuthored": 9,
     "caveat": "The nine skills exist and are mapped to cases below, but no case has ever been run, so this repository holds no evidence that any of them helps, is neutral, or hurts. The mapping in relevantSkills is a statement of intent about which skill should fire, not an observation that it does; whether a skill actually activates is measured per run from the transcript, and the non-trigger case exists precisely to catch a pack that fires when it should not."
   },
@@ -17,6 +17,7 @@
       "id": "github-copilot",
       "displayName": "GitHub Copilot (agent mode)",
       "invocation": "manual-only",
+      "releaseGate": false,
       "transcriptCapture": "Operator copies the full session transcript by hand into transcript.md, including every tool call the UI displays. If the tool offers a session export, use it and record the export path in evidence.extraPaths.",
       "tokenReporting": "unverified",
       "toolCallReporting": "unverified",
@@ -26,6 +27,7 @@
       "id": "github-copilot-cli",
       "displayName": "GitHub Copilot CLI",
       "invocation": "manual-only",
+      "releaseGate": true,
       "transcriptCapture": "Run each arm in a fresh noninteractive prompt process and preserve the CLI session share plus JSONL events. Record the exact CLI/model/effort flags and copy the final response and tool-call evidence into transcript.md.",
       "tokenReporting": "tool-reported",
       "toolCallReporting": "tool-reported",
@@ -35,10 +37,11 @@
       "id": "claude-code",
       "displayName": "Claude Code",
       "invocation": "manual-only",
+      "releaseGate": false,
       "transcriptCapture": "Operator captures the full terminal session (for example via script/tee or a terminal buffer export) into transcript.md, including tool invocations.",
       "tokenReporting": "unverified",
       "toolCallReporting": "unverified",
-      "notes": "Same rule: record only what the tool actually reports at run time. Do not infer token counts from pricing, timing, or output length."
+      "notes": "Optional future evaluation target and not a release dependency. Claude Code is unauthenticated in the current environment, so no result has been fabricated. If it is tested later, record only what the tool actually reports and do not infer token counts."
     }
   ],
   "skillRegistry": {

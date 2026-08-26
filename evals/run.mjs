@@ -29,8 +29,8 @@
  *
  * What this script deliberately never does:
  *   - It never launches an agent. It does not import node:child_process and
- *     spawns no process of any kind. GitHub Copilot and Claude Code are
- *     driven by hand; see README.md for the protocol.
+ *     spawns no process of any kind. The selected agent tool is driven by
+ *     hand; see README.md for the protocol and release-gate designation.
  *   - It never executes, compiles, evaluates or imports anything an agent
  *     produced. Mechanical assertions read files, hash them, regex-match
  *     them and JSON.parse them. Nothing else. See ASSERTIONS.md.
@@ -592,6 +592,16 @@ async function checkSuiteConsistency(suite) {
 
   const seenIds = new Set();
   const slugs = new Set(suite.skillRegistry.slugs.map((entry) => entry.slug));
+  const releaseGateTools = suite.tools.filter((tool) => tool.releaseGate);
+  if (releaseGateTools.length !== 1) {
+    problems.push(
+      `exactly one tool must have releaseGate=true; found ${releaseGateTools.length}`,
+    );
+  } else if (releaseGateTools[0].id !== 'github-copilot-cli') {
+    problems.push(
+      `the current release benchmark must use github-copilot-cli, not ${releaseGateTools[0].id}`,
+    );
+  }
 
   for (const testCase of suite.cases) {
     if (seenIds.has(testCase.id)) problems.push(`duplicate case id: ${testCase.id}`);
@@ -2116,6 +2126,9 @@ async function commandValidate(args) {
     ),
     packVersion,
     authoredSkills: authored.count,
+    releaseGateTools: suite.tools
+      .filter((tool) => tool.releaseGate)
+      .map((tool) => tool.id),
     schemaErrors: errors,
     schemaFileProblems: schemaProblems,
     consistencyProblems: consistency,
@@ -2128,6 +2141,7 @@ async function commandValidate(args) {
     console.log(`  assertions: ${summary.mechanicalAssertions} mechanical, ${summary.manualAssertions} judged`);
     console.log(`  non-trigger cases: ${summary.nonTriggerCases}, live-retrieval cases: ${summary.liveRetrievalCases}`);
     console.log(`  pack VERSION: ${packVersion ?? 'unknown'}, authored skills on disk: ${authored.count}`);
+    console.log(`  release benchmark tool: ${summary.releaseGateTools.join(', ') || 'none'}`);
     for (const problem of schemaProblems) console.log(`  SCHEMA FILE: ${problem}`);
     for (const error of errors) console.log(`  SCHEMA: ${error}`);
     for (const problem of consistency) console.log(`  CONSISTENCY: ${problem}`);

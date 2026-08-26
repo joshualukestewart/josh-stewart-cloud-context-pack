@@ -22,11 +22,15 @@ Nothing in this directory has been run. There are no results here. See
 | [`RESULTS.md`](RESULTS.md) | The empty scorecard. Marked **NOT RUN**. |
 
 `run.mjs` **never launches an agent.** It does not import
-`node:child_process`. GitHub Copilot and Claude Code are driven by hand, by
-you, and the tooling only prepares inputs and grades outputs. That is a
-deliberate constraint: automating a proprietary agent CLI would make the
-runs less reproducible, not more, because their versions and defaults move
-without notice.
+`node:child_process`. The operator drives the selected tool and the tooling
+only prepares inputs and grades outputs. That is a deliberate constraint:
+automating a proprietary agent CLI would make the runs less reproducible, not
+more, because versions and defaults move without notice.
+
+The required release benchmark is **GitHub Copilot CLI**, identified by
+`releaseGate: true` in `evals.json`. GitHub Copilot agent mode and Claude Code
+remain optional future comparison targets. Claude is not a release dependency
+and no Claude result may be claimed unless an authenticated run is completed.
 
 ## The 16 cases
 
@@ -63,9 +67,10 @@ result, it produces no result.
 - **Arm.** `with_pack` = fixture + pack context files. `without_pack` =
   the same fixture bytes, no pack context anywhere. Identical prompt,
   identical tool, identical model, identical clean-context rule.
-- **Iteration.** One complete pass of **one tool** over the suite. Two runs
-  per tool per case means two iterations for that tool. Four iterations
-  covers two tools at two runs each.
+- **Iteration.** One complete pass of **one tool** over the suite. The release
+  benchmark requires two GitHub Copilot CLI iterations, giving two runs per
+  case and arm. Any additional tool gets its own independent iterations and
+  scorecard; tools are never pooled for a release claim.
 - **Run.** One `iteration-N/<eval-id>/<arm>/` directory: one prompt, one
   fresh session, one transcript, one `run.json`, one `grade.json`.
 
@@ -155,9 +160,9 @@ from output length, pricing or duration.
 | Tool calls | Count the tool invocations the transcript shows, by name. | `measurements.toolCalls.source: "unavailable"`. |
 | Retrieval calls | Count the calls that fetched something over the network. Required for case 12. | The live-retrieval case fails its evidence gate, which is correct. |
 
-Token reporting for both tools is recorded as `unverified` in `evals.json`.
-That is honest: this repository has not confirmed what either tool exposes.
-Record what you see, not what you expect.
+Reporting capability is recorded per tool in `evals.json`. GitHub Copilot CLI
+token and tool-call reporting were observed in a non-claim pilot; untested tools
+remain `unverified`. Record what you see, not what you expect.
 
 ### 6. Grade on quoted evidence
 
@@ -218,6 +223,8 @@ regardless of how good the headline number looks.
 
 `launchReady` is true only when the benchmark's status is `complete` and
 every blocking gate passes. One `insufficient-data` forces false.
+For release, that complete benchmark must be for the single tool marked
+`releaseGate: true`; optional tool results are reported separately.
 
 ## What this suite cannot tell you
 

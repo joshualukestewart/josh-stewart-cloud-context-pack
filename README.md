@@ -1,6 +1,6 @@
 # Joshua Stewart Cloud Context Pack
 
-> **Status: pre-release (`0.3.0-pre.1`).** Nine skills are authored, an
+> **Status: pre-release (`0.3.0-pre.2`).** Nine skills are authored, an
 > evaluation harness exists, and the tooling that generates, validates and
 > packages the pack is in place. Small development pilots have exercised three
 > cases, but they are incomplete, n=1, and failed release gates. **No formal
@@ -158,7 +158,9 @@ and the generate/validate/install/release tooling with CI.
 Not done, and required before a real release:
 
 1. **Run the evaluation harness** and record actual results in
-   `evals/RESULTS.md`. Until then no behavioural claim may be made, and
+   `evals/RESULTS.md`. The required launch benchmark is GitHub Copilot CLI;
+   Claude Code and the other adapters are not mandatory release dependencies.
+   Until the designated benchmark passes, no behavioural claim may be made and
    `manifest.json`'s `release.formallyTestedWith` stays empty.
 2. **Review the live freshness report.** Network checks currently report
    version drift and probe errors, so `manifest.json`'s `knowledge.*` fields

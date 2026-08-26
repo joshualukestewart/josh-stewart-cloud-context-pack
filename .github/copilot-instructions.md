@@ -11,7 +11,7 @@ Verify in CI with: npm run check
 Read [AGENTS.md](../AGENTS.md) first and follow it
 as the canonical operating contract.
 
-Pack version `0.3.0-pre.1` (status: `pre-release`), 9 canonical skills.
+Pack version `0.3.0-pre.2` (status: `pre-release`), 9 canonical skills.
 
 Load only the skill matching the task from `.github/skills/`; native skill
 discovery carries each skill description on demand, so it is not duplicated here.
